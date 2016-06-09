@@ -156,53 +156,10 @@ let mainCircle (playersCreated: PlayerData list) =
         shufflePlayers playersCreated
         |> playerCircle
     start ()
-(*
-// в функциональном стиле
-type deck = Deck of PlayingCard list
-module Deck =
-    let take = function
-        | Deck [] -> failwith "card is no more in deck"
-        | Deck (h::t) -> h, Deck t
-    let init = 
-        [ for suit in [ 0..3 ] do
-            for rank in 0..13 -> { Rank = rank; Suit = suit } ]
-    let isEmpty = function
-        | Deck [] -> true
-        | _ -> false
-(*    let 
-    for suit in [ 0..3 ] do
-        for rank in 0..13 -> { Rank = rank; Suit = suit } *)
-type player = { Name:string; Cards:Set<PlayingCard> }
-module Player = 
-    let takeFromDeck ({Cards = cards} as p) d =
-        let (card, dRest) = Deck.take d
-        {p with Cards = cards.Add card }, dRest
-    let haveCards { Cards = cards } = Set.isEmpty cards
-        
-let rec playerCircle ((d, pls) as v)= 
-    match v with
-    | Deck [], [p] -> failwith "deck is empty, one player not over"
-    | _ ->
-        match pls with
-        | [] -> None
-        | p::t as players ->
-            //move h players
-            if Deck.isEmpty d |> not then
-                let (pl, dRest) = Player.takeFromDeck p d
-                Some(dRest, List.next (pl::t))
-            else
-                if Player.haveCards p then List.next players
-                else List.next t
-                |> (fun x -> Some(d, x))
-        (*
-        if h.TakeCardFromPack() = false && h.HaveCards() = false then t
-        else players
-        |> List.next |> playerCircle *)
-let d = Deck [ {Rank = 0; Suit = 0} ]
-let pls = [ {Name = "1"; Cards = set[ ] } ]
-playerCircle (d, pls)
-|> Option.get |> playerCircle
-*)
+
+
+
+
 
 let playersCreated l = 
     let pCreate (name, write, read, rank, info) =

@@ -57,7 +57,17 @@ module CardVisual =
         cards |> List.iteri (fun s xs -> xs |> List.iteri (fun r img -> img.Save(path + r.ToString() + "_" + s.ToString() + ".png", Imaging.ImageFormat.Png)))
 
         cards
-    
+    let suitIdToImg = 
+        //бубна, креста, черва, пика
+        //diamonds, clubs, hearts, spades
+        let s = 
+            [ WindowsFormsApplication1.Properties.Resources.diamonds;
+              WindowsFormsApplication1.Properties.Resources.clubs;
+              WindowsFormsApplication1.Properties.Resources.hearts;
+              WindowsFormsApplication1.Properties.Resources.spades; ]
+            |> List.mapi (fun i x -> i, x) |> Map.ofList
+        (fun x -> Map.tryFind x s)
+
     let rankNameToId = 
         let ns = [2..10] |> List.map (fun x -> x.ToString())
         let ls = [ "jack"; "queen"; "king"; "ace" ]
@@ -90,8 +100,9 @@ module CardVisual =
                 |> List.map int
             //rects 1.0 10.0 3
             //rects 3.0 5.0 6
-
-            let w,h = cardWidth / 2, cardHeight / 2
+            
+            let k = float bmp.Height / float cardHeight
+            let w,h = (float cardWidth * k) |> int, bmp.Height
             let lenght = bmp.Size.Width
 
             rects (float w) (float lenght) (List.length cards)
@@ -125,7 +136,8 @@ module GUI =
         //inherit Form()
         inherit WindowsFormsApplication1.Form1()
         
-        let bmp = new Bitmap(500, 400)
+        let bmp = 
+            new Bitmap(this.panel1.Width, this.panel1.Height)
 
         do
             this.button1.Enabled <- false
@@ -133,7 +145,8 @@ module GUI =
             this.textBox2.TextChanged.Add
                 (fun _ -> this.textBox2.SelectionStart <- this.textBox2.Text.Length; this.textBox2.ScrollToCaret();)
             let bmpRect = Rectangle(Point(0,0), bmp.Size)
-            this.Paint.Add(fun (e:PaintEventArgs) -> e.Graphics.DrawImage(bmp, bmpRect))
+            //this.Paint.Add(fun (e:PaintEventArgs) -> e.Graphics.DrawImage(bmp, bmpRect))
+            this.panel1.Paint.Add(fun (e:PaintEventArgs) -> e.Graphics.DrawImage(bmp, bmpRect))
         
         let get = CardVisual.get()
         
@@ -143,7 +156,8 @@ module GUI =
                 this.Invoke(d, [| box cards |]) |> ignore
             else
                 CardVisual.place bmp cards get
-                this.Invalidate()
+                //this.Invalidate()
+                this.panel1.Invalidate()
 
         let rec print s = 
             if this.InvokeRequired then
@@ -170,7 +184,75 @@ module GUI =
         member __.Print x = print x
         member __.ShowCards x = showcards x
 
-module Core = 
+    let suitSelectDialog suitCount =
+        let suitCounter = ref suitCount
+        let widthForm = 300
+
+        let buttonOk = 
+            let btn = new Button(
+                        Enabled = false,
+                        Text = "OK",
+                        DialogResult = DialogResult.OK)
+            let width = 75
+            let x = widthForm / 2 - width/2
+            let y = widthForm / 4 + 10
+            btn.SetBounds(x, y, width, 23)
+            btn
+        //buttonOk.Anchor <- AnchorStyles.Bottom ||| AnchorStyles.Right
+
+        let toggleButtons = 
+            let btnCount = 4
+            let length = widthForm / btnCount
+
+            let resize (img:Bitmap) width =
+
+                let widthf = float width
+                //let k =  widthf / float (max img.Height img.Width)
+                //if img.Height > img.Width then
+                //    Size(
+                let k = min (widthf / float img.Height) (widthf / float img.Width)
+                let size = Size( int(float img.Width * k), int(float img.Height * k) )
+                let b = new Bitmap(size.Width, size.Height)
+                use g = Graphics.FromImage b
+                let rect = Rectangle(Point(0, 0), size)
+                g.DrawImage(img, rect, Rectangle(Point(0,0), img.Size), GraphicsUnit.Pixel)
+                b
+
+            [0..btnCount - 1]
+            |> List.map (fun i ->
+                let b = new CheckBox()
+                b.Width <- length
+                b.Height <- length
+                let img = (CardVisual.suitIdToImg i).Value
+                b.Image <- resize img (length - 5)
+                b.Location <- Point(i * length, 0)
+                b.CheckedChanged.Add(fun x -> 
+                    if b.Checked then decr suitCounter else incr suitCounter;
+                    buttonOk.Enabled <- !suitCounter = 0
+                    )
+                b.Appearance <- System.Windows.Forms.Appearance.Button
+                b)
+
+        let form = new Form(
+                        Text = sprintf "Select %d suit" suitCount,
+                        ClientSize = new Size(widthForm, 107),
+                        FormBorderStyle = FormBorderStyle.FixedDialog,
+                        StartPosition = FormStartPosition.CenterScreen,
+                        MinimizeBox = false,
+                        MaximizeBox = false,
+                        AcceptButton = buttonOk)
+        do
+            form.Closing.Add(fun e -> e.Cancel <- !suitCounter <> 0 )
+            let (control:Control list) = [buttonOk :> Control;] 
+            let rbuttons = toggleButtons |> List.map (fun x -> x :> Control)
+            form.Controls.AddRange([| yield! control; yield! rbuttons |])
+
+        let dialogResult = form.ShowDialog()
+        toggleButtons |> List.mapi (fun i x -> i, x.Checked)
+        |> List.choose (function (i, true) -> Some i | _ -> None)
+        //textBox.Text
+
+let core () = 
     let writeRead stream write = 
         let req = ClientReq.unpars write
         StreamToStream req stream
@@ -223,6 +305,10 @@ module Core =
                             |> sprintf "%A" |> print
                             update None
                     read f
+                | ServerAnswer.GetSuit n ->
+                    let r = GUI.suitSelectDialog n
+                    writeRead stream (ClientReq.Suits r) |> sprintf "%A" |> print
+                    update None
                 | ServerAnswer.Read ->
                     let f s = 
                         writeRead stream (ClientReq.Write s)
@@ -258,23 +344,9 @@ module Core =
 
     let threadId = Thread.CurrentThread.ManagedThreadId
     async { main () } |> Async.Start
+    form
 
-(*
-    let login () =
-        print "input name:"
-        let rec getNameFunc = 
-            new EventHandler(fun _ _ -> 
-                name <- this.textBox1.Text;
-                this.textBox1.Text <- ""
-                match writeRead stream (ClientReq.EnterBy name) with
-                | ServerAnswer.cmd.Success true -> 
-                    this.button1.Click.RemoveHandler getNameFunc
-                    update()
-                    print "login success"
-                | ServerAnswer.cmd.Success false -> print "name busied. Try again."
-                | _ -> failwith "сервер неправильно отвечает на попытку авторизации"
-                )
-                *)
+
 
 module sandbox = 
     module noisy =
@@ -298,7 +370,10 @@ module sandbox =
         nset.ItemAddedEvent.Add(fun x -> printfn "val=%A" x.Value)
     
         nset.Add(10) *)
-
+    type sandboxGUI () as this = 
+        inherit WindowsFormsApplication1.Form1()
+        do
+            this.btnGetstate.Click.Add(fun _ -> GUI.suitSelectDialog 3 |> printfn "%A")
     let sandbox () =
         (*
         let conect () =
@@ -338,6 +413,8 @@ let rec f str =
         else form.Input f} |> Async.Start
 f "input any"
 *)
-Application.Run (Core.form)
-//sandbox ()
+
+
+Application.Run (new sandbox.sandboxGUI())
+//Application.Run (core())
 

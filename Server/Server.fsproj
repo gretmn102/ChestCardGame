@@ -43,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ListCircle.fs" />
+    <Compile Include="Remade.fs" />
     <Compile Include="ChestGame.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>

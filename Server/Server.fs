@@ -39,8 +39,8 @@ type GameState (plsName) =
             let input = m_input in m_input <- ""; input
         let rank plName () =
             m_state <- { PlName = plName; Cmd = GetRank }; suspend(); 
-            let input = m_input in m_input <- ""; input            
-
+            let input = m_input in m_input <- ""; input
+        //let suits plName 
         plsName 
         |> List.map (fun x -> x, write x, read x, rank x, info x)
         |> ChestGame.playersCreated

@@ -55,11 +55,12 @@ module ServerAnswer =
         | UnknownCmd
         /// <summary>порядок, имена игроков, а так же кол-во карт у каждого<summary>
         | Players of (string * int) list
-
+        
         //| RemoveCard of int * int
         //| AddCard of int * int
         | Write of string
         | GetRank
+        | GetSuit of int
         | Read
         | WaitServer
         | WaitPlayer of string
@@ -98,6 +99,7 @@ module ServerAnswer =
 module ClientReq =
     type cmd = 
         | Rank of int
+        | Suits of int list
         //| Success
         | EnterBy of string
         | Write of string

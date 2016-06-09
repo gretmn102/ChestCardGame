@@ -32,18 +32,19 @@
             this.button1 = new System.Windows.Forms.Button();
             this.textBox2 = new System.Windows.Forms.TextBox();
             this.btnGetstate = new System.Windows.Forms.Button();
+            this.panel1 = new System.Windows.Forms.Panel();
             this.SuspendLayout();
             // 
             // textBox1
             // 
-            this.textBox1.Location = new System.Drawing.Point(113, 240);
+            this.textBox1.Location = new System.Drawing.Point(30, 195);
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new System.Drawing.Size(100, 20);
             this.textBox1.TabIndex = 0;
             // 
             // button1
             // 
-            this.button1.Location = new System.Drawing.Point(219, 238);
+            this.button1.Location = new System.Drawing.Point(136, 193);
             this.button1.Name = "button1";
             this.button1.Size = new System.Drawing.Size(75, 23);
             this.button1.TabIndex = 1;
@@ -54,7 +55,7 @@
             // 
             this.textBox2.AcceptsReturn = true;
             this.textBox2.AcceptsTab = true;
-            this.textBox2.Location = new System.Drawing.Point(113, 267);
+            this.textBox2.Location = new System.Drawing.Point(30, 222);
             this.textBox2.Multiline = true;
             this.textBox2.Name = "textBox2";
             this.textBox2.ReadOnly = true;
@@ -64,19 +65,27 @@
             // 
             // btnGetstate
             // 
-            this.btnGetstate.Location = new System.Drawing.Point(300, 237);
+            this.btnGetstate.Location = new System.Drawing.Point(217, 193);
             this.btnGetstate.Name = "btnGetstate";
             this.btnGetstate.Size = new System.Drawing.Size(75, 23);
             this.btnGetstate.TabIndex = 3;
             this.btnGetstate.Text = "getstate";
             this.btnGetstate.UseVisualStyleBackColor = true;
             // 
+            // panel1
+            // 
+            this.panel1.Location = new System.Drawing.Point(30, 29);
+            this.panel1.Name = "panel1";
+            this.panel1.Size = new System.Drawing.Size(254, 138);
+            this.panel1.TabIndex = 5;
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.SystemColors.Control;
-            this.ClientSize = new System.Drawing.Size(568, 453);
+            this.ClientSize = new System.Drawing.Size(318, 409);
+            this.Controls.Add(this.panel1);
             this.Controls.Add(this.btnGetstate);
             this.Controls.Add(this.textBox2);
             this.Controls.Add(this.button1);
@@ -94,6 +103,7 @@
         public System.Windows.Forms.Button button1;
         public System.Windows.Forms.TextBox textBox2;
         public System.Windows.Forms.Button btnGetstate;
+        public System.Windows.Forms.Panel panel1;
 
 
     }

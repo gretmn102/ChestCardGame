@@ -277,4 +277,16 @@
   <data name="_9_3" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\9_3.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="clubs" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\clubs.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="diamonds" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\diamonds.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="hearts" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\hearts.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="spades" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\spades.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
 </root>

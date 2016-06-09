@@ -81,9 +81,6 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Resources\Image1.png" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="Resources\card deck.png" />
   </ItemGroup>
   <ItemGroup>
@@ -241,6 +238,18 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\12_3.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\clubs.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\diamonds.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\hearts.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Resources\spades.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

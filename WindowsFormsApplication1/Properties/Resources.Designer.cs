@@ -430,5 +430,33 @@ namespace WindowsFormsApplication1.Properties {
                 return ((System.Drawing.Bitmap)(obj));
             }
         }
+        
+        public static System.Drawing.Bitmap clubs {
+            get {
+                object obj = ResourceManager.GetObject("clubs", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        public static System.Drawing.Bitmap diamonds {
+            get {
+                object obj = ResourceManager.GetObject("diamonds", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        public static System.Drawing.Bitmap hearts {
+            get {
+                object obj = ResourceManager.GetObject("hearts", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        public static System.Drawing.Bitmap spades {
+            get {
+                object obj = ResourceManager.GetObject("spades", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
     }
 }
