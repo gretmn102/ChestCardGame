@@ -42,7 +42,7 @@ module Player =
     let takeFromDeck ({Cards = cards} as p) d =
         let (card, dRest) = Deck.take d
         {p with Cards = cards.Add card }, dRest
-    let haveCards { Cards = cards } = Set.isEmpty cards
+    let haveCards { Cards = cards } = Set.count cards <> 0
         
 let playerCircle move = function
     | Deck [], [p] -> failwith "deck is empty, one player not over"
@@ -65,13 +65,13 @@ let playerCircle move = function
         |> List.next |> playerCircle *)
 type client<'a, 'b> = 
     | Next of 'a * 'a list
-    | Move of ('a * 'a list) * bool
+    //| Move of ('a * 'a list) * bool
     | MMove of 'b * 'a list
+    | MoveSuccess of 'a * 'a list
 type server<'a, 'b> = 
     | Stop of 'a * 'a list
     | GetMove of 'a * 'a list
     | GetMMove of 'b * 'a list
-    
     | Inform of string
 
 let moves havecard move curr rest = 
@@ -86,13 +86,15 @@ let moves havecard move curr rest =
     moves curr rest
 
 let maincircle x = 
-    let rec moo informs curr = function
-        | [] -> Stop(curr, [])::informs
-        | h::t as pls ->
-            if Player.haveCards h then GetMove(curr, pls)::Inform (sprintf "%A have cards" h)::informs
-            else moo informs curr t
-
+    let moo informs curr rest = 
+        let rec moo informs acc curr = function
+            | [] -> Stop(curr, acc)::informs
+            | h::t as pls ->
+                if Player.haveCards h then GetMove(curr, pls@acc)::Inform (sprintf "%A have cards" h)::informs
+                else moo informs [ yield! acc; yield h] curr t
+        moo informs [] curr rest
     match x with
+    //| Start(d, pls) -> Next(
     | MMove(Deck [], [p]) -> failwith "deck is empty, one player not over"
     | MMove(d, []) -> failwith "deck is not empty"
     | MMove(Deck [] as d, (p::t as players)) ->
@@ -104,16 +106,75 @@ let maincircle x =
                 let informs = [Inform "pl take card"]
                 GetMMove(d, List.next (p::t))::informs
     | Next(curr, rest) -> moo [] curr rest
-    | Move((curr, []), true) -> failwith "pls empty"
-    | Move((curr, pls), true) -> moo [] curr (List.next pls)
-    | Move((curr, pls), false) -> [Stop(curr, pls)]
+    | MoveSuccess(curr, pls) -> moo [] curr (List.next pls)
+    //| Move((curr, []), true) -> failwith "pls empty"
+    //| Move((curr, pls), true) -> moo [] curr (List.next pls)
+    //| Move((curr, pls), false) -> [Stop(curr, pls)]
+assert 
+    let test = 
+        let plEmpty id = {Id = id; Cards = set[ ] }
+        let plHave id = {Id = id; Cards = set[ {Rank = 0; Suit = 1} ] }
+        let rec next l = function 0 -> l | n -> next (List.next l) (n-1)
+        
+        let pls = [ plEmpty 1; plEmpty 2; plEmpty 3; plEmpty 4 ]
+        let asse = maincircle(Next(plEmpty 10, pls)) |> List.head
+        let guess = server<player, deck>.Stop(plEmpty 10, pls)
+        if asse <> guess then failwith ""
+        
+        let pls = [ plEmpty 1; plEmpty 2; plEmpty 3; plHave 4 ]
+        let ass = maincircle(Next(plEmpty 10, pls)) |> List.head
+        let guess = server<player, deck>.GetMove(plEmpty 10, next pls 3)
+        if ass <> guess then failwith ""
+
+        let pls = [ plHave 1; plEmpty 2; plHave 3; plHave 4 ]
+        let ass = maincircle(MoveSuccess(plEmpty 10, pls)) |> List.head
+        let guess = server<player, deck>.GetMove(plEmpty 10, next pls 2)
+        if ass <> guess then failwith ""
+        let pls = [ plHave 1; plEmpty 2; plEmpty 3; plEmpty 4 ]
+        let ass = maincircle(MoveSuccess(plEmpty 10, pls)) |> List.head
+        let guess = server<player, deck>.GetMove(plEmpty 10, pls)
+        if ass <> guess then failwith ""
+    true
+
+type ClientCmd =
+    | GetState
+type ServerCmd =
+    | Wait
+    | YourTurn
+    | Error of string
+type msg = Post of int * ClientCmd * AsyncReplyChannel<ServerCmd>
+let mail deck pls = MailboxProcessor.Start(fun inbox -> 
+    let rec loop deck msgs = async {
+        let! Post(curr, cmd, reply) = inbox.Receive()
+        let rep = 
+            match cmd with
+            | GetState -> 
+                match msgs with
+                | [] -> Wait, None
+                | server.GetMove({Id = id; Cards = cards}, pls)::_ -> if id = curr then YourTurn, None else Wait, None
+                | x -> Error (sprintf "%A" x), None
+        printfn "%A" rep
+        match rep with
+        | cmd, None -> reply.Reply cmd; return! loop deck msgs
+        | _ -> reply.Reply (Error ""); return! loop deck msgs
+        }
+    Next(List.head pls, List.tail pls) |> maincircle |> loop deck//(maincircle (Next(List.head pls, List.tail pls)))
+    )
+let start() = 
+//assert
+    let pls = 
+        let plEmpty id = {Id = id; Cards = set[ ] }
+        let plHave id = {Id = id; Cards = set[ {Rank = 0; Suit = 1} ] }
+        Seq.init 3 (((+)1) >> plHave) |> List.ofSeq
+    let deck = Deck[{ Rank = 0; Suit = 0 }]
+        
+    let t pls = (maincircle (Next(List.head pls, List.tail pls)))
+    t pls
+
+    let m = mail deck pls
+    m.PostAndReply(fun x -> Post(1, GetState, x) )
+    true
     
-let test2 = 
-    
-    let d = Deck [ {Rank = 0; Suit = 0} ]
-    let pls = [ {Id = 1; Cards = set[ ] }; ] //{Id = 2; Cards = set[ ] } ]
-    maincircle (MMove(d, pls))
-    |> (function GetMMove(d, pls)::_ -> maincircle (MMove(d, pls)))
 (*
 let move moves = function
     | p::(otherFirst::t as others)->
