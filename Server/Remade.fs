@@ -10,6 +10,9 @@ module List =
     next [3;1;2] // [1;2;3]
     next ([]:int list) // fail
     next [1] // [1] *)
+    let next2 curr rest =
+        //List.permute(fun x -> (x + 1) % List.length l) l // [3;1;2] -> [2;3;1]
+         [ yield! rest; yield curr]
     let others current l =
         if not <| List.exists ((=) current) l then failwith "такой элемент в списке отсутствует"
         let to' = Seq.takeWhile ((<>) current) l
@@ -63,17 +66,23 @@ let playerCircle move = function
         if h.TakeCardFromPack() = false && h.HaveCards() = false then t
         else players
         |> List.next |> playerCircle *)
-type client<'a, 'b> = 
-    | Next of 'a * 'a list
-    //| Move of ('a * 'a list) * bool
-    | MMove of 'b * 'a list
-    | MoveSuccess of 'a * 'a list
-type server<'a, 'b> = 
-    | Stop of 'a * 'a list
-    | GetMove of 'a * 'a list
-    | GetMMove of 'b * 'a list
-    | Inform of string
+type reqBig = 
+    | MMove of deck * player list
+type respBig = 
+    | MoveSuccess of player * player list
 
+
+type client = 
+    | Next of player * player list
+    //| Move of ('a * 'a list) * bool
+    | MMove of deck * player list
+    | MoveSuccess of player * player list
+type server = 
+    | Stop of player * player list
+    | GetMove of player * player list
+    | GetMMove of deck * player list
+    | Inform of string
+    | EndGame
 let moves havecard move curr rest = 
     let rec moves curr = function
         | [] -> curr, []
@@ -96,6 +105,7 @@ let maincircle x =
     match x with
     //| Start(d, pls) -> Next(
     | MMove(Deck [], [p]) -> failwith "deck is empty, one player not over"
+    | MMove(Deck [], []) -> [EndGame]
     | MMove(d, []) -> failwith "deck is not empty"
     | MMove(Deck [] as d, (p::t as players)) ->
                 if Player.haveCards p then List.next players
@@ -110,6 +120,7 @@ let maincircle x =
     //| Move((curr, []), true) -> failwith "pls empty"
     //| Move((curr, pls), true) -> moo [] curr (List.next pls)
     //| Move((curr, pls), false) -> [Stop(curr, pls)]
+
 assert 
     let test = 
         let plEmpty id = {Id = id; Cards = set[ ] }
@@ -118,23 +129,125 @@ assert
         
         let pls = [ plEmpty 1; plEmpty 2; plEmpty 3; plEmpty 4 ]
         let asse = maincircle(Next(plEmpty 10, pls)) |> List.head
-        let guess = server<player, deck>.Stop(plEmpty 10, pls)
+        let guess = server.Stop(plEmpty 10, pls)
         if asse <> guess then failwith ""
         
         let pls = [ plEmpty 1; plEmpty 2; plEmpty 3; plHave 4 ]
         let ass = maincircle(Next(plEmpty 10, pls)) |> List.head
-        let guess = server<player, deck>.GetMove(plEmpty 10, next pls 3)
+        let guess = server.GetMove(plEmpty 10, next pls 3)
         if ass <> guess then failwith ""
 
         let pls = [ plHave 1; plEmpty 2; plHave 3; plHave 4 ]
         let ass = maincircle(MoveSuccess(plEmpty 10, pls)) |> List.head
-        let guess = server<player, deck>.GetMove(plEmpty 10, next pls 2)
+        let guess = server.GetMove(plEmpty 10, next pls 2)
         if ass <> guess then failwith ""
         let pls = [ plHave 1; plEmpty 2; plEmpty 3; plEmpty 4 ]
         let ass = maincircle(MoveSuccess(plEmpty 10, pls)) |> List.head
-        let guess = server<player, deck>.GetMove(plEmpty 10, pls)
+        let guess = server.GetMove(plEmpty 10, pls)
         if ass <> guess then failwith ""
     true
+
+module main =
+    type add = 
+        | GetMove of player * player list
+        | Stop of player * player list
+    
+    type client = 
+        | Start of deck * player list
+        | Next of player * player list
+        | MMove of deck * player list
+        | MoveSuccess of player * player list * int * deck
+        | MoveFail of player * player list * int * deck
+    type server = 
+        | Get of player * player list * int * deck
+        | GetMMove of deck * player list
+        | Inform of string
+        | EndGame 
+    let rec maincircle x = 
+        let moo curr rest = 
+            let rec moo acc curr = function
+                | [] -> Stop(curr, acc)
+                | h::t as pls ->
+                    if Player.haveCards h then GetMove(curr, pls@acc)
+                    else moo [ yield! acc; yield h] curr t
+            moo [] curr rest
+        let rec jump reqId = function
+            | {Id = x}::rest as l -> if x = reqId then l else jump reqId (List.next l)
+            | [] -> failwith "list is empty"
+        let rec endmove id dp =
+            //let f d p t = 
+
+            let f' = function
+                | Deck [], [] -> None
+                | Deck [], [p] -> failwith "deck is empty, one player not over"
+                | d, [] -> failwith "deck is not empty"
+                | Deck [] as d, (p::t as pls) ->
+                    let pls = 
+                        if Player.haveCards p then List.next pls
+                        else List.next t
+                    Some(d, List.head pls, List.tail pls)
+                | d, p::t ->
+                    let (p, d) = Player.takeFromDeck p d
+                    Some(d, p, t)
+            match f' dp with
+            | Some(d, p, rest) ->
+                match moo p rest with
+                | GetMove(p, otherPls) -> Get(p, otherPls, id, d)
+                | Stop(p, rest) -> endmove id (d, p :: (jump id rest)) //|> Start |> maincircle
+            | None -> EndGame
+                    //f d p t
+                //let informs = [Inform "pl take card"]
+                //GetMMove(d, List.next (p::t))::informs
+
+            
+        match x with
+        | Start(Deck [], []) -> EndGame
+        | Start(Deck [], [p]) -> failwith "deck is empty, one player not over"
+        | Start(d, []) -> failwith "deck is not empty"
+        | Start(d, (p::({Id = id}::_ as t) as pls)) ->
+            match moo p t with
+            | GetMove(p, otherPls) -> Get(p, otherPls, id, d)
+            | Stop(p, rest) -> (d, p :: (jump id rest)) |> Start |> maincircle
+        | MoveSuccess(curr, pls, id, d) ->
+            match moo curr pls with
+            | GetMove(p, otherPls) -> Get(p, otherPls, id, d)
+            | Stop(p, rest) -> (d, p :: (jump id rest)) |> Start |> maincircle
+        | MoveFail(curr, pls, id, d) -> (d, curr :: (jump id pls)) |> Start |> maincircle        
+ (*
+            circle (d, pls)
+        //| Start(d, pls) -> Next(
+        | MMove(Deck [], [p]) -> failwith "deck is empty, one player not over"
+        | MMove(Deck [], []) -> [EndGame]
+        | MMove(d, []) -> failwith "deck is not empty"
+        | MMove(Deck [], (p::t as players)) ->
+                    if Player.haveCards p then List.next players
+                    else List.next t
+                    |> (fun x -> [GetMMove(d, x)])
+        | MMove(d, p::t) ->
+                    let (p, d) = Player.takeFromDeck p d
+                    let informs = [Inform "pl take card"]
+                    GetMMove(d, List.next (p::t))::informs
+        | Next(curr, rest) -> moo [] curr rest
+        | MoveSuccess(curr, pls) -> moo [] curr (List.next pls) *)
+
+module mod1 = 
+    (*
+    type req =
+        | Start of deck * player list
+    type resp =
+        | GetMove of player * player * (deck *  
+        | State of deck * player list *)
+
+    let secCircle deck pls =
+        let aswer reqId = function
+            | server.Stop(curr, pls) ->
+                let rec f reqId = function
+                    | {Id = x}::rest as l -> if x = reqId then l else f reqId (List.next l)
+                    | [] -> failwith""
+                f reqId pls
+            | _ -> failwith ""
+        
+        Next(List.head pls, List.tail pls) |> maincircle
 
 type ClientCmd =
     | GetState
