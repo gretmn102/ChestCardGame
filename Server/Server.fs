@@ -17,6 +17,42 @@ type gameState =
         | { Cmd = GetRank } -> ServerAnswer.cmd.GetRank
         | { Cmd = InfoMsg msg } -> ServerAnswer.Info msg
 
+module mediator =
+    type server = 
+        | WaitReadLine
+        | WaitReadLineCmd
+        (*
+        | ReadLineReqAlready
+        | WriteLineAlready
+        | ReadLineAlready *)
+        | ReadLine of string
+    type client = 
+        | ReadLineReq
+        | GetState
+        | WriteLine of string
+
+    type msg = Get of AsyncReplyChannel<string> | Set of string
+
+    let mail = MailboxProcessor.Start(fun inbox ->
+        let rec loop state =
+            async {
+                let! msg = inbox.Receive()
+                match msg with
+                | Get r -> 
+                    let! msg = inbox.Scan(function Set x -> Some(async{return x}) | _ -> None)
+                    r.Reply msg
+                    return! loop ()
+                | x -> 
+                    inbox.Post(x)
+                    return! loop () }
+        loop ()
+        )
+    mail.Post(Set "first")
+    mail.Post(Set "second")
+    mail.CurrentQueueLength
+    mail.Receive 10 |> Async.RunSynchronously
+    async{ mail.PostAndReply(fun r -> Get r) |> printfn "%A" } |> Async.Start
+
 type GameState (plsName) =
     let isSuspend = ref false
 
@@ -337,9 +373,9 @@ module SandBox =
 
 
 //SandBox.sandbox()
-//start 2
+start 2
 
-Remade.start()
+//Remade.start()
 
 printfn "Done!"
 Console.ReadKey() |> ignore

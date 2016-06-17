@@ -41,7 +41,7 @@ type Pack() =
 let pack = Pack()
 
 type IOFunc = 
-    { AskYouOnX:  string -> Ask; // спросить у противника что-нибудь
+    { AskYouOnX:  string  -> Ask; // спросить у противника что-нибудь
       Inform:     InfoMsg -> unit; }
 
 type PlayerData (name: string, iofunc:IOFunc) = 
