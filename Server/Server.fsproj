@@ -48,9 +48,9 @@
   <ItemGroup>
     <Compile Include="ListCircle.fs" />
     <Compile Include="Remade.fs" />
-    <Compile Include="RemadeTest.fs" />
     <Compile Include="ChestGame.fs" />
     <Compile Include="Server.fs" />
+    <Compile Include="RemadeTest.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CommandInterpriter\CommandInterpriter.fsproj">

@@ -29,25 +29,30 @@ let visualize inputTree =
         visualize inputTree prefNone
         |> Seq.map (sprintf "%s")
     System.String.Join("\n", res)
+
+let fbool test f x = [f true; f false] |> List.map (test x)
+let funit test f x = [f() |> test x]
+let accf acc f v = 
+    let xs = 
+        if Set.contains v acc then []
+        else Set.add v acc |> f
+    Node(v, xs)
+
 module MoveCircle =
     type Test =
-        | GetMoveT of int * int
+        | GetMoveT of int * int * int list
         | PlayerHaveCardsT of int
         | EndMoveCircleT
-    let rec f acc x = 
-        let fbool f' x = [f' true; f' false] |> List.map (f x)
-        let fboolt f' v = 
-            if Set.contains v acc then []
-            else Set.add v acc |> fbool f'
+    let rec test acc x = 
         match x with
         | EndMoveCircle -> Node(EndMoveCircleT, [])
-        | GetMove((p1, p2), f') -> 
-            let v = GetMoveT(p1,p2)
-            Node(v, fboolt f' v)
-        | PlayerHaveCards(p, f') ->
+        | GetMove((p1, p2, other), f) -> 
+            let v = GetMoveT(p1,p2, other)
+            accf acc (fbool test f) v
+        | PlayerHaveCards(p, f) ->
             let v = PlayerHaveCardsT p
-            Node(v, fboolt f' v)
-    moveCircle [1..3] |> f Set.empty |> visualize |> printfn "%s"
+            accf acc (fbool test f) v
+    moveCircle [1..3] |> test Set.empty |> visualize |> printfn "%s"
 module PlCircle =
     type Test = 
         | EndT
@@ -57,27 +62,29 @@ module PlCircle =
         | PlayerTakeCardFromDeckT of int
         | FailT of string
     let rec test acc x =
-        let fbool f x = [f true; f false] |> List.map (test x)
-        let fboolt f v = 
-            if Set.contains v acc then []
-            else Set.add v acc |> fbool f
-        let funit f v =
-            if Set.contains v acc then Node(v, [])
-            else Node(v, [f () |> test (Set.add v acc)])
         match x with
         | End -> Node(EndT, [])
         | DeckIsEmpty f -> 
-            Node(DeckIsEmptyT, fbool f acc)
+            Node(DeckIsEmptyT, fbool test f acc)
         | MoveCircle(pls, f) -> 
             let v = MoveCircleT pls
-            funit f v
-        | T.PlayerHaveCards(pl, f) ->
+            accf acc (funit test f) v
+        | PlayersCircleT.PlayerHaveCards(pl, f) ->
             let v = PlayerHaveCardsT pl
-            Node(v, fboolt f v)
+            accf acc (fbool test f) v
         | PlayerTakeCardFromDeck(pl, f) ->
-            funit f (PlayerTakeCardFromDeckT pl)
+            let v = PlayerTakeCardFromDeckT pl
+            accf acc (funit test f) v
         | Fail str -> Node(FailT str, [])
-    let k = plCircle [1..3] |> test Set.empty |> visualize
+    let k = playersCircle [1..3] |> test Set.empty |> visualize
     let file = System.IO.File.CreateText @"e:\file.txt"
     fprintfn file "%s" k
     file.Close()
+module Basic =
+    #if INTERACTIVE
+    #load "remade.fs"
+    #endif
+    open Remade
+    let m = Remade.mail (set[1..3])
+    m.PostAndReply(fun r -> Post(GetState 1, r))
+    |> printfn "%A"

@@ -45,34 +45,10 @@ module List =
             nextWhile (fun _ -> true) ([]:int list) = None;
         ]
 
-type playingCard = { Rank:int; Suit:int }
-type deck = Deck of playingCard list
-module Deck =
-    let take = function
-        | Deck [] -> failwith "card is no more in deck"
-        | Deck (h::t) -> h, Deck t
-    let init = 
-        [ for suit in [ 0..3 ] do
-            for rank in 0..13 -> { Rank = rank; Suit = suit } ]
-    let isEmpty = function
-        | Deck [] -> true
-        | _ -> false
 
-type player = { Id:int; Cards:Set<playingCard> }
-module Player = 
-    let takeFromDeck ({Cards = cards} as p) d =
-        let (card, d') = Deck.take d
-        {p with Cards = cards.Add card }, d'
-    let haveCards { Cards = cards } = Set.isEmpty cards |> not
-    let haveCard card { Cards = cards } = Set.contains card cards
-    let give p1 p2 card = //({ Cards = c1 } as p1) { Cards = c2 } = 
-        let p1 = {p1 with Cards = Set.remove card p1.Cards}
-        let p2 = {p2 with Cards = Set.add card p2.Cards}
-        p1, p2
-
+type PlayerId = int
 
 module Intuitive =
-    open System
     module List = 
         let next l = [ yield! List.tail l; yield List.head l]
     type Player =
@@ -122,72 +98,52 @@ module Continues =
             
         let next l = [ yield! List.tail l; yield List.head l]
         let rec f xs =
-            (*
-            let read = Read (List.head xs)
-            let write m = WriteAll(m, List.tail xs), f (next xs)
-            Continue(read, write) *)
-            //List.foldBack (fun x state -> ) xs
-            (*
-            let msg = "some msg"
-            let writers = 
-                (fun () -> Write(("first", msg), 
-                    (fun () -> Write(("second", msg),
-                        (fun () -> Write(("three", msg),
-                            (fun () -> f xs))))))) *)
             let writers msg = 
                 (fun () -> f (List.tail xs))
                 |> List.foldBack (fun x state -> (fun () -> Write((x, msg), state))) xs
             Read(fun msg -> writers msg ())
-        
-    type T = 
-        | MoveCircle of int list * (unit -> T)
-        | DeckIsEmpty of (bool -> T)
-        | PlayerHaveCards of int * (bool -> T)
-        | PlayerTakeCardFromDeck of int * (unit -> T)
+    
+    
+    type PlayersCircleT = 
+        | MoveCircle of PlayerId list * (unit -> PlayersCircleT)
+        | DeckIsEmpty of (bool -> PlayersCircleT)
+        | PlayerHaveCards of PlayerId * (bool -> PlayersCircleT)
+        | PlayerTakeCardFromDeck of PlayerId * (unit -> PlayersCircleT)
         | End
         | Fail of string
-    let rec plCircle pls =
-        DeckIsEmpty(fun res ->
-            match res, pls with
-            | false, [h] -> PlayerTakeCardFromDeck(h, fun () -> plCircle [h] )
-            | false, [] -> Fail "deck not empty, player empty"
-            | false, (h::_ as pls) ->
-                MoveCircle(pls, fun () ->
-                    PlayerTakeCardFromDeck(h, fun () ->
-                            List.next pls |> plCircle))
-            | true, xs->
+    let rec playersCircle pls =
+        DeckIsEmpty(function
+            | false ->
+                match pls with
+                | [] -> Fail "deck not empty, player empty"
+                | [h] -> PlayerTakeCardFromDeck(h, fun () -> playersCircle [h] )
+                | (h::_ as pls) ->
+                    MoveCircle(pls, fun () ->
+                        PlayerTakeCardFromDeck(h, fun () ->
+                                List.next pls |> playersCircle))
+            | true ->
                 let rec f = function
                     | [] -> End
                     | [h] -> 
                         PlayerHaveCards(h, function
                             | true -> Fail "deck is empty, one player not over"
                             | false -> End)
-                    | h::t ->
+                    | h::t as pls ->
                         MoveCircle(pls, fun () ->
                             PlayerHaveCards(h, fun res ->
                                 let pl = if res then List.next pls else t
                                 f pl))
-                f xs
-                )
-    type T2 =
+                f pls)
+                
+    type MoveCircleT =
         | EndMoveCircle
-        | GetMove of (int * int) * (bool -> T2)
-        //| PlayersHaveCards of int list * (int list option -> Ty2 )
-        | PlayerHaveCards of int * (bool -> T2)
+        | GetMove of (PlayerId * PlayerId * PlayerId list) * (bool -> MoveCircleT)
+        | PlayerHaveCards of PlayerId * (bool -> MoveCircleT)
     let moveCircle = function
         | [] -> failwith "pls is empty"
         | [_] -> failwith "pls only one"
         | curr::t -> 
             let rec f xs =
-                (*
-                let nextWhile cont xs =
-                    let rec f acc = function
-                        | [] -> EndMoveCircle
-                        | h::t as pls -> 
-                            PlayerHaveCards(h, function
-                                | true -> pls @ (List.rev acc) |> cont
-                                | false -> f (h::acc) t)
-                    f [] xs *)
                 let nextWhile cont xs =
                     let rec f = function
                         | [] -> EndMoveCircle
@@ -197,10 +153,164 @@ module Continues =
                                 | false -> f t)
                     f xs
                 let f'' = function
-                    | h::_ as xs -> 
-                        GetMove((curr, h), function 
+                    | h::t as xs -> 
+                        GetMove((curr, h, t), function 
                             | true -> f (List.next xs)
                             | false -> EndMoveCircle)
                     | [] -> failwith "nextWhile has return Some([])"
                 xs |> nextWhile f''
             f t
+
+type Rank = int
+type Suit = int
+type PlayingCard = { Rank:Rank; Suit:Suit }
+
+module Deck =
+    type Deck = Deck of PlayingCard list
+    let take = function
+        | Deck [] -> failwith "card is no more in deck"
+        | Deck (h::t) -> h, Deck t
+    let init = 
+        [ for suit in [ 0..3 ] do
+            for rank in 0..13 -> { Rank = rank; Suit = suit } ]
+        |> Deck
+    let isEmpty = function
+        | Deck [] -> true
+        | _ -> false
+
+module Player = 
+    type Player = { Id:int; Cards:Set<PlayingCard> }
+    let takeFromDeck ({Cards = cards} as p) d =
+        let (card, d') = Deck.take d
+        {p with Cards = cards.Add card }, d'
+    let takeFromDeck2 ({Cards = cards} as p) d =
+        let (card, d') = Deck.take d
+        {p with Cards = cards.Add card }, d', card
+    let haveCards { Cards = cards } = Set.isEmpty cards |> not
+    let haveCard card { Cards = cards } = Set.contains card cards
+    let give p1 p2 card =
+        let p1 = {p1 with Cards = Set.remove card p1.Cards}
+        let p2 = {p2 with Cards = Set.add card p2.Cards}
+        p1, p2
+
+type Ask =
+    | IsRank of Rank
+    | IsCount of Rank * int
+    | IsSuit of Rank * Suit list
+type Info =
+    | AddCard of PlayingCard
+    | RemoveCard of PlayingCard
+
+    | AskXOnYou  of Ask * PlayerId // противник спрашивает у тебя
+    | AskXOnY    of Ask * PlayerId * PlayerId
+
+    | MoveYouOnX of PlayerId
+    | MoveXOnY   of PlayerId * PlayerId // кто-то на кого-то начинает ход
+    | MoveXOnYou of PlayerId // на тебя ходит
+    
+type Answ =
+    | Wait of PlayerId
+    | EndGame
+    | MoveCircleAnsw
+    | GetMoveAnsw of PlayerId * PlayerId * PlayerId list
+    | Info of Info
+
+type Req = 
+    | GetState of PlayerId
+open Continues
+type Msg =
+    | Post of Req * AsyncReplyChannel<Answ>
+
+type State = { PCircle: PlayersCircleT; Deck: Deck.Deck; Players: Map<PlayerId, Player.Player> }
+type State2 = { MoveCircle: MoveCircleT; Deck: Deck.Deck; Players: Map<PlayerId, Player.Player> }
+let requester (inbox:MailboxProcessor<_>) pId f =
+    let rec loop () =
+        async {
+            let! msg = inbox.Receive ()
+            match msg with
+            | Post(req, r) ->
+                match req with
+                | GetState(pId') -> 
+                    if pId = pId' then return f r
+                    else
+                        r.Reply(Answ.Wait pId)
+                        return! loop ()
+        }
+    printfn "start"
+    loop()
+
+let loopMoveCircle (inbox:MailboxProcessor<_>) st =
+    let rec loopMoveCircle ({ MoveCircle = mc; Deck = d; Players = pls } as st) =
+        match mc with
+        | MoveCircleT.EndMoveCircle -> async { return st }
+        | MoveCircleT.GetMove((p1, p2, xs), f) -> 
+            async {
+                do! requester inbox p2 (fun r -> r.Reply(Info(Info.MoveXOnYou p1)))
+                let! msg = inbox.Receive ()
+                match msg with
+                | Post(req, r) ->
+                    match req with
+                    | GetState _ -> 
+                        printfn "before"
+                        let f' (r:AsyncReplyChannel<_>) =
+                            let (p, d, card) = Player.takeFromDeck2 pls.[p2] d
+                            r.Reply(Answ.Info(Info.AddCard card))
+                            1
+                        //let! x = requester inbox p2 f' //(fun r -> r.Reply(Info(Info.MoveXOnYou p1)))
+                        printfn "after"
+//                        for x in xs do
+//                            do! requester inbox x (fun r -> r.Reply(Info(Info.MoveXOnY(p1, p2))))
+                        //r.Reply(Answ.GetMoveAnsw(p1, p2, xs))
+                        return! loopMoveCircle { st with MoveCircle = f false }
+            }
+        | MoveCircleT.PlayerHaveCards(pId, f) ->
+            loopMoveCircle {st with MoveCircle = Player.haveCards pls.[pId] |> f}
+    loopMoveCircle st
+
+let mail plsId =
+    MailboxProcessor.Start (fun inbox ->
+        //let rec loopMoveCircle ()
+        let rec loopCircle ({ PCircle = pcl; Deck = d; Players = pls } as st) =
+            let pUpdate id v = Map.add id v pls
+            match pcl with
+            | PlayersCircleT.DeckIsEmpty f -> 
+                loopCircle {st with PCircle = Deck.isEmpty d |> f}
+            | PlayersCircleT.End -> 
+                async {
+                    let! msg = inbox.Receive ()
+                    match msg with
+                    | Post(req, r) ->
+                        match req with
+                        | GetState _ -> 
+                            r.Reply(Answ.EndGame)
+                            return! loopCircle st
+                }
+            | PlayersCircleT.MoveCircle(pl, f) as x ->
+                async {
+                    let! r = 
+                        loopMoveCircle inbox { MoveCircle = moveCircle pl; Deck = d; Players = pls }
+                    let st = { PCircle = f(); Deck = r.Deck; Players = r.Players }
+                    return! loopCircle st
+                }
+            | PlayersCircleT.PlayerHaveCards(pl, f) ->
+                loopCircle {st with PCircle = Player.haveCards pls.[pl] |> f}
+            | PlayersCircleT.PlayerTakeCardFromDeck(pId, f) ->
+                async {
+                    let f (r:AsyncReplyChannel<_>) =
+                        let (p, d, card) = Player.takeFromDeck2 pls.[pId] d
+                        r.Reply(Answ.Info(Info.AddCard card))
+                        {PCircle = f(); Deck = d; Players = pUpdate pId p}
+                    let! res = requester inbox pId f
+                    return! loopCircle res
+                }
+        let pCircleSt = playersCircle (List.ofSeq plsId)
+        let pls = plsId |> Set.map (fun x -> {Player.Id = x; Player.Cards = Set.empty})
+        let d = Deck.init
+        let (d, pls) = 
+            let f (d,pls) p =
+                let (p, d) = Player.takeFromDeck p d
+                (d, p::pls)
+            pls |> Set.fold f (d, [])
+        let pls = pls |> List.map (fun x -> x.Id, x) |> Map.ofList
+        let initSt = { PCircle = pCircleSt; Deck = d; Players = pls }
+        loopCircle initSt)
