@@ -4,26 +4,37 @@ module List =
     let next l =
         //List.permute(fun x -> (x + 1) % List.length l) l // [3;1;2] -> [2;3;1]
         [ yield! List.tail l; yield List.head l]
-    (* test
-    next [1;2;3] // [2;3;1]
-    next [2;3;1] // [3;1;2]
-    next [3;1;2] // [1;2;3]
-    next ([]:int list) // fail
-    next [1] // [1] *)
+    let private testfail f = try f () |> ignore; false with _ -> true
+    assert 
+        next [1;2;3] = [2;3;1]
+    assert
+        next [2;3;1] = [3;1;2]
+    assert
+        next [3;1;2] = [1;2;3]
+    assert
+        (fun () -> next ([]:int list)) |> testfail
+    assert
+        next [1] = [1]
     let others current l =
         if not <| List.exists ((=) current) l then failwith "такой элемент в списке отсутствует"
         let to' = Seq.takeWhile ((<>) current) l
         let from = Seq.skipWhile ((<>) current) l
         [ yield! Seq.skip 1 from; yield! to']
-    (*
-    // test
-    others 1 [1..5] // [2;3;4;5]
-    others 3 [1..5] // [4;5;1;2]
-    others 5 [1..5] // [1;2;3;4]
-    others 6 [1..5] // fail
-    others 1 []     // fail
-    others 1 [1]    // [] *)
 
+    assert
+        others 1 [1..5] = [2;3;4;5]
+    assert
+        others 3 [1..5] = [4;5;1;2]
+    assert
+        others 5 [1..5] = [1;2;3;4]
+    assert
+        (fun () -> others 6 [1..5]) |> testfail
+    assert
+        (fun () -> others 1 []) |> testfail
+    assert
+        others 1 [1] |> List.isEmpty
+
+open CommandInterpriter
 open CommandInterpriter.ServerAnswer
 
 type Pack() =
@@ -35,7 +46,7 @@ type Pack() =
         }).GetEnumerator()
     let m_pack = deckOfCard
 
-    member this.Give() = if m_pack.MoveNext() then Some(m_pack.Current) else None
+    member __.Give() = if m_pack.MoveNext() then Some(m_pack.Current) else None
     //member this.Empty() = m_pack.
 
 let pack = Pack()
@@ -47,47 +58,46 @@ type IOFunc =
 type PlayerData (name: string, iofunc:IOFunc) = 
     let mutable m_cards = Set.empty<PlayingCard>
     /// <summary> имя игрока </summary>
-    member this.Name = name
-    member this.CardCount = m_cards.Count
-    member this.Card = m_cards
+    member __.Name = name
+    member __.CardCount = m_cards.Count
+    member __.Card = m_cards
     /// <summary> взять из колоды карту </summary>
-    member this.TakeCardFromPack() = 
-                        match pack.Give() with
-                        | Some(card) ->
-                            iofunc.Inform (CardAdd card)
-                            m_cards <- m_cards.Add card; true
-                        | None -> false
+    member __.TakeCardFromPack() = 
+        match pack.Give() with
+        | Some(card) ->
+            iofunc.Inform (CardAdd card)
+            m_cards <- m_cards.Add card; true
+        | None -> false
     /// <summary>Есть ли у данного игрока карты?</summary>
-    member this.HaveCards() = if m_cards.Count = 0 then false else true
+    member __.HaveCards() = m_cards.Count <> 0
     /// <summary>Взять карты</summary>
-    member this.Take cards = 
+    member __.Take cards = 
         Set.iter (CardAdd >> iofunc.Inform) cards
         m_cards <- cards |> Set.fold (fun state c -> state.Add(c)) m_cards
     /// <summary>Отдать карты</summary>
-    member this.Give = function
-            | IsSuit(r, suits) ->
-                            let cards = set [ for suit in suits -> { Rank = r; Suit = suit } ]
-                            Set.iter (CardRemove >> iofunc.Inform) cards
-                            m_cards <- cards |> Set.difference m_cards
-                            cards
-            | _ -> failwith "Give принимает только объединение IsSuit"
-    member this.Check ask = 
-            let res = match ask with
-                        | IsRank(r) ->
-                                    m_cards |> Set.exists (function { Rank = current; } -> current = r)
-                        | IsCount(r, count) ->
-                                    (m_cards 
-                                    |> Set.filter (function { Rank = current; } -> current = r) 
-                                    |> Set.count) = count
-                        | IsSuit(r, suits) ->
-                                    set[ for suit in suits -> { Rank = r; Suit = suit}]
-                                    |> Set.intersect m_cards
-                                    |> Set.count
-                                    |> (=) suits.Length
-            res
+    member __.Give = function
+        | IsSuit(r, suits) ->
+            let cards = set [ for suit in suits -> { Rank = r; Suit = suit } ]
+            Set.iter (CardRemove >> iofunc.Inform) cards
+            m_cards <- cards |> Set.difference m_cards
+            cards
+        | _ -> failwith "Give принимает только объединение IsSuit"
+    member __.Check = function
+        | IsRank(r) ->
+            m_cards |> Set.exists (function { Rank = current; } -> current = r)
+        | IsCount(r, count) ->
+            (m_cards 
+            |> Set.filter (function { Rank = current; } -> current = r) 
+            |> Set.count) = count
+        | IsSuit(r, suits) ->
+            set[ for suit in suits -> { Rank = r; Suit = suit}]
+            |> Set.intersect m_cards
+            |> Set.count
+            |> (=) suits.Length
+            
     member __.Inform = iofunc.Inform
 
-    member this.Request name = iofunc.AskYouOnX name
+    member __.Request name = iofunc.AskYouOnX name
 
 
 //open ListCircle
@@ -116,50 +126,47 @@ let mainCircle (playersCreated: PlayerData list) =
                 if h |> haveCards then
                     if func h then players |> List.next |> playerCircle func haveCards else ()
                 else 
-                    if List.length t = 0 then ()
+                    if List.isEmpty t then ()
                     else 
                         t |> List.next |> playerCircle func haveCards
         //playerCircle (fun _ -> true) (fun _ -> false) [1..2]
         let haveCards (p:PlayerData) = p.HaveCards()
+        let f (current:PlayerData) (moveOn:PlayerData) =
+            current.Inform(InfoMsg.MoveYouOnX(moveOn.Name))
+            moveOn.Inform(InfoMsg.MoveXOnYou(current.Name))
 
-        List.others (pl:PlayerData) players
-        |> playerCircle
-            (fun c ->
-                pl.Inform(InfoMsg.MoveYouOnX(c.Name))
-                c.Inform(InfoMsg.MoveXOnYou(pl.Name))
-                
-                let infoOther = 
-                    let others = playersCreated |> List.filter (fun x -> [pl; c] |> List.exists ((=) x) |> not)
-                    (fun f -> others |> List.iter f)
-                //others |> List.iter (fun x -> x.Inform(MoveXOnY(pl.Name, c.Name)) )
-                //['b'..'h'] |> List.filter (fun x -> ['d'; 'c'] |> List.exists ((=) x) |> not)
-                infoOther(fun x -> x.Inform(MoveXOnY(pl.Name, c.Name)))
-                let response = pl.Request(c.Name)
-                c.Inform(AskXOnYou(response, pl.Name))
-                infoOther(fun x -> x.Inform(AskXOnY(response, pl.Name, c.Name)))
-                if c.Check(response) then
-                    playersCreated |> List.iter (fun x -> x.Inform(InfoMsg.Success true))
-                    pl.Take(c.Give(response))
-                    true
-                else
-                    playersCreated |> List.iter (fun x -> x.Inform(InfoMsg.Success false)) 
-                    false) haveCards
+            let infoOther = 
+                let others = 
+                    playersCreated
+                    |> List.filter (fun x -> [current; moveOn] |> List.exists ((=) x) |> not)
+                (fun f -> others |> List.iter f)
+            //others |> List.iter (fun x -> x.Inform(MoveXOnY(pl.Name, c.Name)) )
+            //['b'..'h'] |> List.filter (fun x -> ['d'; 'c'] |> List.exists ((=) x) |> not)
+            infoOther(fun x -> x.Inform(MoveXOnY(current.Name, moveOn.Name)))
+            let response = current.Request(moveOn.Name)
+            moveOn.Inform(AskXOnYou(response, current.Name))
+            infoOther(fun x -> x.Inform(AskXOnY(response, current.Name, moveOn.Name)))
+            if moveOn.Check(response) then
+                playersCreated |> List.iter (fun x -> x.Inform(InfoMsg.Success true))
+                current.Take(moveOn.Give(response))
+                true
+            else
+                playersCreated |> List.iter (fun x -> x.Inform(InfoMsg.Success false)) 
+                false
+        List.others pl players
+        |> playerCircle (f pl) haveCards
 
     let start () =  
         let rec playerCircle = function
             | [] -> ()
             | h::t as players ->
                 move h players
-                if h.TakeCardFromPack() = false && h.HaveCards() = false then t
+                if h.TakeCardFromPack() |> not && h.HaveCards() |> not then t
                 else players
                 |> List.next |> playerCircle
         shufflePlayers playersCreated
         |> playerCircle
     start ()
-
-
-
-
 
 let playersCreated l = 
     let pCreate (name, write, read, rank, info) =

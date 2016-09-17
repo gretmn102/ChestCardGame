@@ -25,39 +25,35 @@ type A<'a> =
         let ms = new MemoryStream(bytes)
         ms
 
-
+(*
 let parser (str:string) = 
     let xs = str.Split('&') |> Array.map (fun x -> x.Split('='))
     if xs |> Array.exists (function [|x;y|] -> false | _ -> true) then None
-    else xs |> Array.map (function [|x;y|] -> x, y | _ -> failwith "parse error") |> Some
+    else xs |> Array.map (function [|x;y|] -> x, y | _ -> failwith "parse error") |> Some *)
+type Rank = Rank of int
+type Suit = Suit of int
+type PlayingCard = { Rank: Rank; Suit: Suit }
 
 module ServerAnswer = 
-    type Rank = Rank of int
-    type Suit = Suit of int
-    type PlayingCard = { Rank:Rank; Suit:Suit }
-
     type Ask =
         | IsRank of Rank
         | IsCount of Rank * int
         | IsSuit of Rank * Suit list
 
     type InfoMsg =
-          | AskXOnYou  of Ask * string // противник спрашивает у тебя
-          | AskXOnY    of Ask * string * string
-          | MoveYouOnX of string
-          | MoveXOnY   of string * string // кто-то на кого-то начинает ход
-          | MoveXOnYou of string // на тебя ходит
-          | Success    of bool // успешность какой-нибудь операции
-          | CardAdd    of PlayingCard
-          | CardRemove of PlayingCard
+        | AskXOnYou  of Ask * string // противник спрашивает у тебя
+        | AskXOnY    of Ask * string * string
+        | MoveYouOnX of string
+        | MoveXOnY   of string * string // кто-то на кого-то начинает ход
+        | MoveXOnYou of string // на тебя ходит
+        | Success    of bool // успешность какой-нибудь операции
+        | CardAdd    of PlayingCard
+        | CardRemove of PlayingCard
 
     type cmd = 
         | UnknownCmd
         /// <summary>порядок, имена игроков, а так же кол-во карт у каждого<summary>
         | Players of (string * int) list
-        
-        //| RemoveCard of int * int
-        //| AddCard of int * int
         | Write of string
         | GetRank
         | GetSuit of int

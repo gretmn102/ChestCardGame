@@ -8,13 +8,11 @@ open System.Net.Sockets;
 open System.Windows.Forms
 open CommandInterpriter
 
-//printfn "thread create: %A" Thread.CurrentThread.ManagedThreadId
-
 module geom =
-    let polygon (y_C, x_C) R phi n = 
+    let polygon (yCentre, xCentre) r phi n = 
         let k = float n
-        let y i = y_C + R * sin(phi + 2.0 * Math.PI * i / k);
-        let x i = x_C + R * cos(phi + 2.0 * Math.PI * i / k);
+        let y i = yCentre + r * sin(phi + 2.0 * Math.PI * i / k);
+        let x i = xCentre + r * cos(phi + 2.0 * Math.PI * i / k);
         [for i = 0.0 to k - 1.0 do yield x i, y i]
     //polygon (0.0, 0.0) 10.0 (Math.PI * 3.0 / 2.0) 10
 module CardVisual = 
@@ -73,7 +71,7 @@ module CardVisual =
         let ls = [ "jack"; "queen"; "king"; "ace" ]
         let m = ns@ls |> List.mapi (fun i x -> x, i) |> Map.ofList
 
-        (fun x -> m.TryFind x)
+        m.TryFind
 
     let get() = 
         printfn "loading resources..."
@@ -133,11 +131,9 @@ module GUI =
     open System.Drawing
 
     type MainForm () as this = 
-        //inherit Form()
         inherit WindowsFormsApplication1.Form1()
         
-        let bmp = 
-            new Bitmap(this.panel1.Width, this.panel1.Height)
+        let bmp = new Bitmap(this.panel1.Width, this.panel1.Height)
 
         do
             this.button1.Enabled <- false
@@ -220,13 +216,12 @@ module GUI =
 
             [0..btnCount - 1]
             |> List.map (fun i ->
-                let b = new CheckBox()
-                b.Width <- length
-                b.Height <- length
-                let img = (CardVisual.suitIdToImg i).Value
+                let b = new CheckBox(Width = length, Height = length)
+                let img = CardVisual.suitIdToImg i |> Option.get
+                
                 b.Image <- resize img (length - 5)
                 b.Location <- Point(i * length, 0)
-                b.CheckedChanged.Add(fun x -> 
+                b.CheckedChanged.Add(fun _ -> 
                     if b.Checked then decr suitCounter else incr suitCounter;
                     buttonOk.Enabled <- !suitCounter = 0
                     )
@@ -250,7 +245,6 @@ module GUI =
         let dialogResult = form.ShowDialog()
         toggleButtons |> List.mapi (fun i x -> i, x.Checked)
         |> List.choose (function (i, true) -> Some i | _ -> None)
-        //textBox.Text
 
 let core () = 
     let writeRead stream write = 
@@ -273,13 +267,17 @@ let core () =
         let print = form.Print
         let cards = System.Collections.Generic.List<int*int>()
         let showcards () = cards.ToArray() |> List.ofArray |> form.ShowCards
-        
         let inter = function
             | ServerAnswer.Write str -> print str
             | ServerAnswer.Info msg -> 
+                //Rank
                 match msg with
-                | (ServerAnswer.InfoMsg.CardAdd { ServerAnswer.Rank = ServerAnswer.Rank rank; ServerAnswer.Suit = ServerAnswer.Suit suit }) as x -> cards.Add(rank, suit); showcards (); //print (sprintf "%A" x)
-                | (ServerAnswer.InfoMsg.CardRemove { ServerAnswer.Rank = ServerAnswer.Rank rank; ServerAnswer.Suit = ServerAnswer.Suit suit }) as x-> cards.Remove(rank, suit) |> ignore; showcards (); //print (sprintf "%A" x)
+                | (ServerAnswer.InfoMsg.CardAdd { Rank = Rank rank; Suit = Suit suit }) as x ->
+                    cards.Add(rank, suit)
+                    showcards () //print (sprintf "%A" x)
+                //| (ServerAnswer.CardAdd(PlayingCard(Rank r, Suit s))) as x -> cards.Add(y.Rank, y.Suit); showcards (); //print (sprintf "%A" x)
+                | (ServerAnswer.InfoMsg.CardRemove { Rank = Rank rank; Suit = Suit suit }) as x->
+                    cards.Remove(rank, suit) |> ignore; showcards (); //print (sprintf "%A" x)
                 | x -> print (sprintf "%A" x)
             | x -> print (sprintf "%A" x)
                  
@@ -414,6 +412,6 @@ let rec f str =
 f "input any"
 *)
 
-Application.Run (new sandbox.sandboxGUI())
-//Application.Run (core())
+//Application.Run (new sandbox.sandboxGUI())
+Application.Run (core())
 

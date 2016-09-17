@@ -1,5 +1,38 @@
 ﻿module ListCircle
 
+let circularList xs = 
+    let xs = [yield! xs]
+    let rec lastTail = function
+        | _::([_] as t) -> t
+        | _::t -> lastTail t
+        | [] -> failwith "list is empty"
+    let lastNode = lastTail xs
+    //lastNode.GetType().GetFields(BindingFlags.NonPublic ||| BindingFlags.Instance) |> Array.map (fun field -> field.Name)
+    let tailField = 
+        lastNode.GetType().GetField("tail", 
+                System.Reflection.BindingFlags.NonPublic ||| System.Reflection.BindingFlags.Instance)
+    tailField.SetValue(lastNode, xs)
+    xs
+
+
+module alter = 
+    type 'a T = { Data:'a; Next:T<'a>}
+    let createFromList = function
+        | [] -> failwith "lst is empty"
+        | [x] -> let rec n = { Data = x; Next = n} in n
+        | [x; y] -> 
+            let rec n2 = {Data = y; Next = n1}
+            and n1 = {Data = x; Next = n2}
+            n1
+        | xs ->
+            let rec last = { Data = Seq.last xs; Next = first }
+            and f = function
+                | [h; _] -> { Data = h; Next = last }
+                | h::t -> { Data = h; Next = f t }
+                | [] -> failwith ""
+            and first = { Data = List.head xs; Next = f (List.tail xs) }
+            first
+
 // можно попробовать реализовать Closure через System.Collections.Generic.Queue
 type 'a Clos = { Data:'a; mutable Next:Clos<'a> option }
 type Closure<'a when 'a : equality> (inputList:'a list) = 
@@ -31,30 +64,31 @@ type Closure<'a when 'a : equality> (inputList:'a list) =
     member this.Current() = if newClos then failwith "новый clos" else curr.Value.Data
     member this.Count() = count
     member this.Next() =
-            if count < 1 then
-                false
+        if count < 1 then
+            false
+        else
+            if newClos then
+                //curr <- last
+                newClos <- false
             else
-                if newClos then
-                    //curr <- last
-                    newClos <- false
-                else
-                    last <- curr
-                    curr <- curr.Value.Next
-                true
+                last <- curr
+                curr <- curr.Value.Next
+            true
                 
     member this.Remove() = 
-            if newClos then
-                failwith "новый clos"
-            newClos <- true
-            last.Value.Next <- curr.Value.Next
-            curr <- curr.Value.Next
-            count <- count - 1
+        if newClos then
+            failwith "новый clos"
+        newClos <- true
+        last.Value.Next <- curr.Value.Next
+        curr <- curr.Value.Next
+        count <- count - 1
 
     member this.Find (elem:'a) =
-                        if this.Next() = false then failwith "список пуст"
-                        if inputList |> List.exists ((=) elem) |> not then failwithf "список %A не содержит %A" inputList elem
-                        //while last.IsNone do if this.Next() = false then failwith "пуст"
-                        while curr.Value.Data <> elem do this.Next() |> ignore
+        if this.Next() |> not then failwith "список пуст"
+        if inputList |> List.exists ((=) elem) |> not then 
+            failwithf "список %A не содержит %A" inputList elem
+        //while last.IsNone do if this.Next() = false then failwith "пуст"
+        while curr.Value.Data <> elem do this.Next() |> ignore
 
 (* //test
 let c = new Closure<_>([1..41])

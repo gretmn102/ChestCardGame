@@ -7,7 +7,7 @@ open System.Net;
 open System.Net.Sockets;
 open CommandInterpriter
 
-type cmd = Write of string | Read | InfoMsg of CommandInterpriter.ServerAnswer.InfoMsg | GetRank
+type cmd = Write of string | Read | InfoMsg of ServerAnswer.InfoMsg | GetRank
 type gameState = 
     { PlName:string; Cmd:cmd; }
     member this.ToServer () =
@@ -34,7 +34,7 @@ module mediator =
     type msg = Get of AsyncReplyChannel<string> | Set of string
 
     let mail = MailboxProcessor.Start(fun inbox ->
-        let rec loop state =
+        let rec loop () =
             async {
                 let! msg = inbox.Receive()
                 match msg with
@@ -51,7 +51,7 @@ module mediator =
     mail.Post(Set "second")
     mail.CurrentQueueLength
     mail.Receive 10 |> Async.RunSynchronously
-    async{ mail.PostAndReply(fun r -> Get r) |> printfn "%A" } |> Async.Start
+    async{ mail.PostAndReply Get |> printfn "%A" } |> Async.Start
 
 type GameState (plsName) =
     let isSuspend = ref false
@@ -65,16 +65,18 @@ type GameState (plsName) =
 
     let pls = 
         let write plName str = 
-            m_state <- { PlName = plName; Cmd = Write str };
+            m_state <- { PlName = plName; Cmd = Write str }
             suspend()
         let info plName msg = 
             m_state <- { PlName = plName; Cmd = InfoMsg msg }
             suspend()
         let read plName () = 
-            m_state <- { PlName = plName; Cmd = Read }; suspend(); 
+            m_state <- { PlName = plName; Cmd = Read }
+            suspend()
             let input = m_input in m_input <- ""; input
         let rank plName () =
-            m_state <- { PlName = plName; Cmd = GetRank }; suspend(); 
+            m_state <- { PlName = plName; Cmd = GetRank }
+            suspend()
             let input = m_input in m_input <- ""; input
         //let suits plName 
         plsName 
@@ -92,7 +94,7 @@ type GameState (plsName) =
         isSuspend := false
     member __.GetCards name = 
         (pls |> List.find (fun p -> p.Name = name)).Card |> List.ofSeq 
-        |> List.map (function { Rank = ServerAnswer.Rank r; Suit = ServerAnswer.Suit s } -> r, s)
+        |> List.map (function { Rank = Rank r; Suit = Suit s } -> r, s)
     member __.State = m_state
     member __.IsSuspend = !isSuspend
     member __.Continue () = isSuspend := false
@@ -120,7 +122,7 @@ module nameReg =
                                     return! loop res }
                     loop ([]:string list))
             member this.InputName name = counter.PostAndReply(fun x -> Name(name, x))
-            /// <summary> return names and dispose </summary>
+            /// <summary> return names  </summary>
             member this.Fetch () = counter.PostAndReply(fun x -> Fetch x)
 
 let readWrite stream f = 
@@ -294,11 +296,11 @@ module SandBox =
             thread
         let mutable thread = connect()
 
-        member this.Abort () = thread.Abort()
-        member this.Close () = isOpen := false
-        member this.ReConnect () = 
+        member __.Abort () = thread.Abort()
+        member __.Close () = isOpen := false
+        member __.ReConnect () = 
             if !isOpen then failwith "connect is open" else isOpen := true; thread <- connect()
-        member this.Write s = write := s
+        member __.Write s = write := s
 
     let read (r:StreamReader) = 
         try r.ReadLine() |> Some with _ -> None
@@ -354,8 +356,6 @@ module SandBox =
 
         //client
 
-        //listener.Con
-        //counter.Post(Incr 10)
         (*
         let f name =
             async { let! res = counter.PostAndAsyncReply(fun x -> Name(name, x))
@@ -369,12 +369,18 @@ module SandBox =
         counter.PostAndReply(fun x -> Fetch x)
         counter.CurrentQueueLength
         *)
-        
+
+    //Seq.ski
+    //open System.Reflection
+
+
+    //lastNode
+    //x |> Seq.take 20 |> Seq.toList
+    //List.tail x
 
 
 //SandBox.sandbox()
 start 2
-
 //Remade.start()
 
 printfn "Done!"
