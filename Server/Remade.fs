@@ -149,23 +149,26 @@ module Continues =
     let rec plCircle pls =
         DeckIsEmpty(fun res ->
             match res, pls with
-            | true, [] -> End
-            | true, [h] -> 
-                PlayerHaveCards(h, function
-                    | true -> Fail "deck is empty, one player not over"
-                    | false -> End)
             | false, [h] -> PlayerTakeCardFromDeck(h, fun () -> plCircle [h] )
             | false, [] -> Fail "deck not empty, player empty"
-            | deckIsEmpty, (h::t as pls) ->
-                MoveCircle(pls, fun () -> 
-                    if deckIsEmpty then
-                        PlayerHaveCards(h, fun res ->
-                            let pl = if res then List.next pls else t
-                            plCircle pl)
-                    else
-                        PlayerTakeCardFromDeck(h, fun () ->
-                            plCircle(List.next pls))))
-
+            | false, (h::_ as pls) ->
+                MoveCircle(pls, fun () ->
+                    PlayerTakeCardFromDeck(h, fun () ->
+                            List.next pls |> plCircle))
+            | true, xs->
+                let rec f = function
+                    | [] -> End
+                    | [h] -> 
+                        PlayerHaveCards(h, function
+                            | true -> Fail "deck is empty, one player not over"
+                            | false -> End)
+                    | h::t ->
+                        MoveCircle(pls, fun () ->
+                            PlayerHaveCards(h, fun res ->
+                                let pl = if res then List.next pls else t
+                                f pl))
+                f xs
+                )
     type T2 =
         | EndMoveCircle
         | GetMove of (int * int) * (bool -> T2)

@@ -77,7 +77,7 @@ module PlCircle =
         | PlayerTakeCardFromDeck(pl, f) ->
             funit f (PlayerTakeCardFromDeckT pl)
         | Fail str -> Node(FailT str, [])
-    let k = plCircle [1..2] |> test Set.empty |> visualize
+    let k = plCircle [1..3] |> test Set.empty |> visualize
     let file = System.IO.File.CreateText @"e:\file.txt"
     fprintfn file "%s" k
     file.Close()
