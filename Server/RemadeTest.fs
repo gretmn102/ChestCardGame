@@ -85,6 +85,10 @@ module Basic =
     #load "remade.fs"
     #endif
     open Remade
+    
     let m = Remade.mail (set[1..3])
-    m.PostAndReply(fun r -> Post(GetState 1, r))
-    |> printfn "%A"
+    m.PostAndReply ((fun r -> Post(GetState 1, r)), 500) |> printfn "%A"
+    m.PostAndReply ((fun r -> Post(GetState 2, r)), 500) |> printfn "%A"
+    m.PostAndReply ((fun r -> Post(GetState 3, r)), 500) |> printfn "%A"
+    m.PostAndReply ((fun r -> Post(Input(2, RankInput 2), r)), 500) |> printfn "%A"
+    m.PostAndReply ((fun r -> Post(Input(2, CountInput 1), r)), 500) |> printfn "%A"

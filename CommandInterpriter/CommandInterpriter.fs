@@ -25,11 +25,6 @@ type A<'a> =
         let ms = new MemoryStream(bytes)
         ms
 
-(*
-let parser (str:string) = 
-    let xs = str.Split('&') |> Array.map (fun x -> x.Split('='))
-    if xs |> Array.exists (function [|x;y|] -> false | _ -> true) then None
-    else xs |> Array.map (function [|x;y|] -> x, y | _ -> failwith "parse error") |> Some *)
 type Rank = Rank of int
 type Suit = Suit of int
 type PlayingCard = { Rank: Rank; Suit: Suit }
@@ -74,24 +69,7 @@ module ServerAnswer =
         
     let unpars (x:cmd) = A<cmd>.serialize x
     let pars x = A<cmd>.deserialize x
-    (*
-    let unparse = function
-        | UnknownCmd -> "act=unknown"
-        | RemoveCard(rank, suit) -> String.Format("act=removeCard&rank={0}&suit={1}", rank, suit)
-        | AddCard (rank, suit) -> String.Format("act=addCard&rank={0}&suit={1}", rank, suit)
-        | Write str -> String.Format("act=write&arg={1}", str)
-        | Read -> "act=read"
-    //parser "act=write&arg={1}"
-    let parse str =
-        match parser str with
-        | None -> None
-        | Some [|("act", "unknown")|] -> Some(UnknownCmd)
-        | Some [|("act", "removeCard"); ("rank", rank); ("suit", suit)|] -> Some(RemoveCard(rank, suit))
-        | Some [|("act", "addCard"); ("rank", rank); ("suit", suit)|] -> Some(AddCard(rank, suit))
-        | Some [|("act", "write"); ("arg", str)|] -> Some(Write str)
-        | Some [|("act", "read")|] -> Some(Read)
-        | _ -> None
-    *)
+
 module ClientReq =
     type cmd = 
         | Rank of int
@@ -108,20 +86,7 @@ module ClientReq =
 
     let unpars (x:cmd) = A<cmd>.serialize x
     let pars x = A<cmd>.deserialize x
-    (*
-    let unparse = function
-        | Success -> "act=success"
-        | Write str -> String.Format("act=write&arg={1}", str)
-        | Getstate -> "act=getstate"
 
-    let parse str =
-        match parser str with
-        | None -> None
-        | Some [| "act", "success" |] -> Some(Success)
-        | Some [| "act", "write"; "arg", arg |] -> Some(Write arg)
-        | Some [| "act", "getstate" |] -> Some(Getstate)
-        | _ -> None
-        *)
 /// <summary>
 /// Copies the contents of input to output. Doesn't close either stream.
 /// </summary>
