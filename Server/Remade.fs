@@ -252,14 +252,14 @@ type Inputs =
     | SuitInput of Set<Suit>
 
 type Req = 
-    | GetState of PlayerId
-    | Input of PlayerId * Inputs
+    | GetState
+    | Input of Inputs
 
     /// <summary>Запрос на порядок, имена игроков, а так же кол-во карт у каждого.</summary>
-    | GetGameInfo of PlayerId
+    | GetGameInfo
 open Continues
 type Msg =
-    | Post of Req * AsyncReplyChannel<Answ>
+    | Post of PlayerId * Req * AsyncReplyChannel<Answ>
 
 type DataState = { Deck: Deck.Deck; Players: Map<PlayerId, Player.Player> }
 type PCircleState = { PCircle: PlayersCircleT; Data:DataState }
@@ -273,7 +273,7 @@ let requester inbox {Players = pls} interp =
         async {
             let! msg = receive inbox
             match msg with
-            | Post(GetGameInfo pId, r) ->
+            | Post(pId, GetGameInfo, r) ->
                 let plsInfo = 
                     Map.toList pls |> List.map (fun (id, p) -> 
                         {PlayerInfo.Id = id;
@@ -282,8 +282,8 @@ let requester inbox {Players = pls} interp =
                 let answ = GameInfo(plsInfo, pls.[pId].Cards)
                 replyChannel r answ
                 return! loop()
-            | Post(req, r) -> 
-                let (answ, ret) = interp req
+            | Post(pId, req, r) -> 
+                let (answ, ret) = interp pId req
                 replyChannel r answ
                 match ret with
                 | Some x -> return x
@@ -291,19 +291,19 @@ let requester inbox {Players = pls} interp =
         }
     loop()
 let inputer inbox dataState pId getStateAnsw inputState =
-    let interp = function
-        | GetState pId' -> 
-            if pId' = pId then getStateAnsw, None
+    let interp pIdcurr = function
+        | GetState -> 
+            if pIdcurr = pId then getStateAnsw, None
             else Answ.Wait pId, None
-        | Input(pId', inputs) ->
-            if pId' = pId then inputState inputs
+        | Input(inputs) ->
+            if pIdcurr = pId then inputState inputs
             else FailAnsw, None
         | _ -> FailAnsw, None
     requester inbox dataState interp
 
 let informer inbox dataState pId msg =
-    let f = function
-        | GetState pId' -> 
+    let f pId' = function
+        | GetState -> 
             if pId' = pId then msg, Some ()
             else Answ.Wait pId, None
         | _ -> FailAnsw, None
@@ -425,7 +425,7 @@ let loopCircle inbox plsId st =
         | PlayersCircleT.DeckIsEmpty f -> 
             loop {st with PCircle = Deck.isEmpty d |> f}
         | PlayersCircleT.End -> 
-            requester inbox dataState (function _ -> Answ.EndGame, None)
+            requester inbox dataState (fun _ _ -> Answ.EndGame, None)
         | PlayersCircleT.MoveCircle(pl, f) ->
             async {
                 let! r = 

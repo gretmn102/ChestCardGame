@@ -107,8 +107,8 @@ module nameReg2 =
     module nameReg2 =
         type Req =
             | Log of Log
-            | GetState
-            | Input of Remade.Inputs
+            | GameReq of Remade.Req
+
         type Msg =
             | Post of UserName * Req * AsyncReplyChannel<Answ>
             //| Fetch of AsyncReplyChannel<Set<string>>
@@ -127,12 +127,12 @@ module nameReg2 =
                             | None -> None
                             | Some(names, slots) -> Some {Names = names; EmptySlots = slots}
                         answ, state
-                    | GetState ->
+                    | GameReq(req) ->
                         if slots = 0 then
-                            let r = m.PostAndReply(fun r -> Remade.Msg.Post(Remade.Req.GetState name, r))
+                            let r = m.PostAndReply(fun r -> Remade.Msg.Post(name, req, r))
                             Game r, None
                         else WaitPlayers slots, None
-                    | _ -> failwith "not impl"
+                    //| _ -> failwith "not impl"
                 let rec loop st =
                     async {
                         let! msg = receive inbox
@@ -157,11 +157,11 @@ module nameReg2 =
                             | None -> None
                             | Some(names, slots) -> Some {Names = names; EmptySlots = slots}
                         answ, state
-                    | GetState ->
+                    | _ ->
                         //if slots = 0 then GameStart true, None
                         //else WaitPlayers slots, None
                         WaitPlayers slots, None
-                    | _ -> GameStart false, None
+                    //| _ -> GameStart false, None
                 MailboxProcessor.Start(fun inbox -> 
                     let rec loop st =
                         async {
