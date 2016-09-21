@@ -46,7 +46,7 @@ module List =
         ]
 
 
-type PlayerId = int
+type PlayerId = string
 
 module Intuitive =
     module List = 
@@ -214,7 +214,7 @@ type Ask =
     | IsCount of int
     | IsSuit of Set<Suit>
 type Info =
-    | AddCard of PlayingCard
+    | AddCardFromDeck of PlayingCard
     //| RemoveCard of PlayingCard
 
     | CompileChest of PlayerId * Rank
@@ -262,8 +262,8 @@ type Msg =
     | Post of Req * AsyncReplyChannel<Answ>
 
 type DataState = { Deck: Deck.Deck; Players: Map<PlayerId, Player.Player> }
-type State = { PCircle: PlayersCircleT; Data:DataState }
-type State2 = { MoveCircle: MoveCircleT; Data:DataState }
+type PCircleState = { PCircle: PlayersCircleT; Data:DataState }
+type MoveCircleState = { MoveCircle: MoveCircleT; Data:DataState }
 
 let replyChannel (r:AsyncReplyChannel<_>) x = r.Reply x
 let receive (mailboxProc:MailboxProcessor<_>) = mailboxProc.Receive()
@@ -313,6 +313,14 @@ let loopMoveCircle inbox st =
     let getp pId (pls:Map<_,_>) = pls.[pId]
     let getMove (p1, p2, xs) ({ Players = pls} as st) =
         async {
+            let informSingle = informer inbox st
+                
+            let informAll xs answ = 
+                async{
+                    for x in xs do
+                        do! informSingle x answ
+                }
+
             let informs answOnYou answXonY =
                 async {
                     do! informer inbox st p2 (Info answOnYou)
@@ -410,39 +418,38 @@ let loopMoveCircle inbox st =
         }
 
     loopMoveCircle st
-
+let loopCircle inbox plsId st = 
+    let rec loop ({ PCircle = pcl; Data = {Deck = d; Players = pls} as dataState} as st) =
+        let pUpdate id v = Map.add id v pls
+        match pcl with
+        | PlayersCircleT.DeckIsEmpty f -> 
+            loop {st with PCircle = Deck.isEmpty d |> f}
+        | PlayersCircleT.End -> 
+            requester inbox dataState (function _ -> Answ.EndGame, None)
+        | PlayersCircleT.MoveCircle(pl, f) ->
+            async {
+                let! r = 
+                    loopMoveCircle inbox { MoveCircle = moveCircle pl; Data = {Deck = d; Players = pls}}
+                let st = { PCircle = f(); Data = r.Data }
+                return! loop st
+            }
+        | PlayersCircleT.PlayerHaveCards(pl, f) ->
+            loop {st with PCircle = Player.haveCards pls.[pl] |> f}
+        | PlayersCircleT.PlayerTakeCardFromDeck(pId, f) ->
+            async {
+                let ((p, chest), d, card) = Player.takeFromDeck2 pls.[pId] d
+                do! informer inbox dataState pId (Info(AddCardFromDeck card))
+                match chest with
+                | None -> do ()
+                | Some rank ->
+                    for p in plsId do
+                        do! informer inbox dataState p (Info(CompileChest(pId, rank)))
+                return! loop {PCircle = f(); Data = {Deck = d; Players = pUpdate pId p} }
+            }
+        | PlayersCircleT.Fail str -> failwith str
+    loop st
 let mail plsId =
-    let loopCircle st inbox = 
-        let rec loop ({ PCircle = pcl; Data = {Deck = d; Players = pls} as dataState} as st) =
-            let pUpdate id v = Map.add id v pls
-            match pcl with
-            | PlayersCircleT.DeckIsEmpty f -> 
-                loop {st with PCircle = Deck.isEmpty d |> f}
-            | PlayersCircleT.End -> 
-                requester inbox dataState (function _ -> Answ.EndGame, None)
-            | PlayersCircleT.MoveCircle(pl, f) ->
-                async {
-                    let! r = 
-                        loopMoveCircle inbox { MoveCircle = moveCircle pl; Data = {Deck = d; Players = pls}}
-                    let st = { PCircle = f(); Data = r.Data }
-                    return! loop st
-                }
-            | PlayersCircleT.PlayerHaveCards(pl, f) ->
-                loop {st with PCircle = Player.haveCards pls.[pl] |> f}
-            | PlayersCircleT.PlayerTakeCardFromDeck(pId, f) ->
-                async {
-                    let ((p, chest), d, card) = Player.takeFromDeck2 pls.[pId] d
-                    match chest with
-                    | None ->
-                        do! informer inbox dataState pId (Info(AddCard card))
-                    | Some rank ->
-                        for p in plsId do
-                            do! informer inbox dataState p (Info(CompileChest(pId, rank)))
-                    return! loop {PCircle = f(); Data = {dataState with Players = pUpdate pId p} }
-                }
-            | PlayersCircleT.Fail str -> failwith str
-        loop st
-    MailboxProcessor.Start (fun inbox ->
+    let init =
         let pCircleSt = playersCircle (List.ofSeq plsId)
         let pls = List.init (Set.count plsId) (fun _ -> { Player.Cards = Set.empty; Player.Chests = Set.empty})
         let d = Deck.init
@@ -452,5 +459,5 @@ let mail plsId =
                 (d, p::pls)
             pls |> List.fold f (d, [])
         let pls = List.zip (List.ofSeq plsId) pls |> Map.ofList
-        let initSt = { PCircle = pCircleSt; Data = {Deck = d; Players = pls}}
-        loopCircle initSt inbox)
+        { PCircle = pCircleSt; Data = {Deck = d; Players = pls}}
+    MailboxProcessor.Start (fun inbox -> loopCircle inbox plsId init)

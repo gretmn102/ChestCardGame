@@ -51,6 +51,7 @@
     <Compile Include="ChestGame.fs" />
     <Compile Include="RemadeTest.fs" />
     <Compile Include="Server.fs" />
+    <Compile Include="RemadeServer.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\CommandInterpriter\CommandInterpriter.fsproj">

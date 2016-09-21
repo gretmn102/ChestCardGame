@@ -17,42 +17,6 @@ type gameState =
         | { Cmd = GetRank } -> ServerAnswer.cmd.GetRank
         | { Cmd = InfoMsg msg } -> ServerAnswer.Info msg
 
-module mediator =
-    type server = 
-        | WaitReadLine
-        | WaitReadLineCmd
-        (*
-        | ReadLineReqAlready
-        | WriteLineAlready
-        | ReadLineAlready *)
-        | ReadLine of string
-    type client = 
-        | ReadLineReq
-        | GetState
-        | WriteLine of string
-
-    type msg = Get of AsyncReplyChannel<string> | Set of string
-
-    let mail = MailboxProcessor.Start(fun inbox ->
-        let rec loop () =
-            async {
-                let! msg = inbox.Receive()
-                match msg with
-                | Get r -> 
-                    let! msg = inbox.Scan(function Set x -> Some(async{return x}) | _ -> None)
-                    r.Reply msg
-                    return! loop ()
-                | x -> 
-                    inbox.Post(x)
-                    return! loop () }
-        loop ()
-        )
-    mail.Post(Set "first")
-    mail.Post(Set "second")
-    mail.CurrentQueueLength
-    mail.Receive 10 |> Async.RunSynchronously
-    async{ mail.PostAndReply Get |> printfn "%A" } |> Async.Start
-
 type GameState (plsName) =
     let isSuspend = ref false
 
@@ -149,9 +113,6 @@ let write stream thing =
 
 let start playerCount =
     let waitClientsNum = ref playerCount
-    
-    let listener = new TcpListener(5000);
-    listener.Start();
 
     let nameRegister = nameReg.NameRegister()
     
@@ -184,6 +145,8 @@ let start playerCount =
                 //true
         f()
 
+    let listener = new TcpListener(5000);
+    listener.Start();
     let client () =
             let client = listener.AcceptTcpClient()
             decr waitClientsNum
@@ -269,7 +232,6 @@ let start playerCount =
             | None -> incr waitClientsNum
             | Some name -> clientCircle (name, stream) } |> Async.Start
 
-
 module SandBox =
     open System
     open System.Threading
@@ -284,7 +246,8 @@ module SandBox =
         let connect () =
             let connect () =
                 let client = new TcpClient()
-                client.Connect(IPAddress.Parse("127.0.0.1"), 5000)
+                
+                client.Connect(IPAddress.Loopback, 5000)
                 let w = new StreamWriter( client.GetStream() )
                 w.AutoFlush <- true
                 while !isOpen do

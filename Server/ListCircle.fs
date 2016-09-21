@@ -14,7 +14,6 @@ let circularList xs =
     tailField.SetValue(lastNode, xs)
     xs
 
-
 module alter = 
     type 'a T = { Data:'a; Next:T<'a>}
     let createFromList = function
@@ -176,3 +175,26 @@ let t = p
                             failwith "fail")
 t
 *)*)
+
+module alter2 = 
+    let start (xs:'a list) =
+        match xs with
+        | [] -> failwith "empty lst"
+        | h::t -> (([]:'a list), h, t)
+
+    let next (xs, x, ys) = 
+        match ys with
+        | [] -> x::xs |> List.rev |> start
+        | h::t -> x::xs, h, t
+
+    let prev (xs, x, ys) =
+        match xs with
+        | [] -> 
+            let s = x::ys |> List.rev
+            List.tail s, List.head s, []
+        | h::t -> t, h, x::ys
+    
+    assert
+        let s = start [1..10]
+        let s' = next s
+        s = prev s'
