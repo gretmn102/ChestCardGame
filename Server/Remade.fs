@@ -1,5 +1,9 @@
 ﻿module Remade
 
+open CommandInterpriter
+open CommandInterpriter.GameAnswer
+open CommandInterpriter.GameReq
+
 module List =
     let next l =
         //List.permute(fun x -> (x + 1) % List.length l) l // [3;1;2] -> [2;3;1]
@@ -45,9 +49,6 @@ module List =
             nextWhile (fun _ -> true) ([]:int list) = None;
         ]
 
-
-type PlayerId = string
-
 module Intuitive =
     module List = 
         let next l = [ yield! List.tail l; yield List.head l]
@@ -89,6 +90,7 @@ module Intuitive =
         member __.Continue () =
             if m_suspend |> not then failwith "not suspend for continue"
             m_suspend <- false
+
 ///<summary> реализация через продолжения</summary>
 module Continues =
     module Sample = 
@@ -161,10 +163,6 @@ module Continues =
                 xs |> nextWhile f''
             f t
 
-type Rank = int
-type Suit = int
-type PlayingCard = { Rank:Rank; Suit:Suit }
-
 module Deck =
     type Deck = Deck of PlayingCard list
     let suitVarCount = 4
@@ -209,54 +207,6 @@ module Player =
         let p2 = addCard p2 card
         p1, p2
 
-type Ask =
-    | IsRank of Rank
-    | IsCount of int
-    | IsSuit of Set<Suit>
-type Info =
-    | AddCardFromDeck of PlayingCard
-    //| RemoveCard of PlayingCard
-
-    | CompileChest of PlayerId * Rank
-
-    | AskXOnYou  of Ask * PlayerId
-    | AskXOnY    of Ask * PlayerId * PlayerId
-
-    | MoveYouOnX of PlayerId
-    | MoveXOnY   of PlayerId * PlayerId
-    | MoveXOnYou of PlayerId
-
-    | Success of bool
-
-type PlayerInfo = { Id:PlayerId; CardsCount:int; Chests:Set<Rank> }
-
-type Answ =
-    | Wait of PlayerId
-    | EndGame
-
-    | GetRank
-    | GetCount
-    | GetSuit
-
-    | Info of Info
-    | FailAnsw
-    | Nil
-
-    /// <summary>На случай если один из игроков выйдет из игры и снова войдет, таких данных достаточно
-    /// чтобы продолжить игру.</summary>
-    | GameInfo of PlayerInfo list * Set<PlayingCard>
-
-type Inputs = 
-    | RankInput of Rank
-    | CountInput of int
-    | SuitInput of Set<Suit>
-
-type Req = 
-    | GetState
-    | Input of Inputs
-
-    /// <summary>Запрос на порядок, имена игроков, а так же кол-во карт у каждого.</summary>
-    | GetGameInfo
 open Continues
 type Msg =
     | Post of PlayerId * Req * AsyncReplyChannel<Answ>

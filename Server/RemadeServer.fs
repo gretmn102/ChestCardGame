@@ -1,5 +1,8 @@
 ﻿module RemadeServer
 
+open CommandInterpriter
+open CommandInterpriter.ServerAnswer
+
 module nameReg = 
     type UserId = int
     type Answ = 
@@ -74,21 +77,21 @@ module nameReg =
         //member __.Fetch () = counter.PostAndReply(Fetch)
 
 module nameReg2 = 
-    type UserName = string
-    type Answ = 
-        | Success of bool
-        | NameEmpty
-        | NameBusy
-        | SlotsFull
-        
-        | WaitPlayers of int
-        | GameStart of bool
-
-        | Game of Remade.Answ
     type Log =
         | Login
         | Logout
-    let logProc (name:UserName) names slots = function
+    type Req =
+        | Log of PlayerId * Log
+        | GameReq of PlayerId * GameReq.Req
+    type Msg =
+        | Post of Req * AsyncReplyChannel<Answ>
+        //| Fetch of AsyncReplyChannel<Set<string>>
+
+    let replyChannel (r:AsyncReplyChannel<_>) x = r.Reply x
+    let receive (mailboxProc:MailboxProcessor<_>) = mailboxProc.Receive()
+    type State = { Names:Map<PlayerId, bool>; EmptySlots:int }
+
+    let logProc (name:PlayerId) names slots = function
         | Logout ->
             match Map.tryFind name names with
             | None -> Success false, None
@@ -104,79 +107,73 @@ module nameReg2 =
                     let state = Map.add name true names, slots - 1
                     Success true, Some state
                 | Some true -> NameBusy, None
-    module nameReg2 =
-        type Req =
-            | Log of Log
-            | GameReq of Remade.Req
 
-        type Msg =
-            | Post of UserName * Req * AsyncReplyChannel<Answ>
-            //| Fetch of AsyncReplyChannel<Set<string>>
+    let gameStartMail inbox (m:MailboxProcessor<Remade.Msg>) st =
+        let interp ({Names = names; EmptySlots = slots}) = function
+            | Log(name, x) -> 
+                let (answ, x) = logProc name names slots x
+                let state =
+                    match x with
+                    | None -> None
+                    | Some(names, slots) -> Some {Names = names; EmptySlots = slots}
+                answ, state
+            | GameReq(name, req) ->
+                if slots = 0 then
+                    let r = m.PostAndReply(fun r -> Remade.Msg.Post(name, req, r))
+                    Game r, None
+                else WaitPlayers slots, None
+            //| _ -> failwith "not impl"
+        let rec loop st =
+            async {
+                let! msg = receive inbox
+                match msg with
+                //| Fetch r -> r.Reply names; return ()
+                | Post(req, r) -> 
+                    let (answ, state) = interp st req 
+                    r.Reply answ
+                    match state with
+                    | None -> return! loop st
+                    | Some st -> return! loop st
+            }
+        loop st
 
-        let replyChannel (r:AsyncReplyChannel<_>) x = r.Reply x
-        let receive (mailboxProc:MailboxProcessor<_>) = mailboxProc.Receive()
-        type State = { Names:Map<UserName, bool>; EmptySlots:int }
-
-        module Continues =
-            let start inbox (m:MailboxProcessor<Remade.Msg>) st =
-                let interp name ({Names = names; EmptySlots = slots}) = function
-                    | Log x -> 
-                        let (answ, x) = logProc name names slots x
-                        let state =
-                            match x with
-                            | None -> None
-                            | Some(names, slots) -> Some {Names = names; EmptySlots = slots}
-                        answ, state
-                    | GameReq(req) ->
-                        if slots = 0 then
-                            let r = m.PostAndReply(fun r -> Remade.Msg.Post(name, req, r))
-                            Game r, None
-                        else WaitPlayers slots, None
-                    //| _ -> failwith "not impl"
+    type NameRegister(emptySlots) =
+        let counter =
+            let interp ({Names = names; EmptySlots = slots}) = function
+                | Log(name, x) -> 
+                    let (answ, x) = logProc name names slots x
+                    let state =
+                        match x with
+                        | None -> None
+                        | Some(names, slots) -> Some {Names = names; EmptySlots = slots}
+                    answ, state
+                | _ ->
+                    //if slots = 0 then GameStart true, None
+                    //else WaitPlayers slots, None
+                    WaitPlayers slots, None
+                //| _ -> GameStart false, None
+            MailboxProcessor.Start(fun inbox -> 
                 let rec loop st =
                     async {
-                        let! msg = receive inbox
+                        let! msg = inbox.Receive()
                         match msg with
                         //| Fetch r -> r.Reply names; return ()
-                        | Post(name, req, r) -> 
-                            let (answ, state) = interp name st req 
+                        | Post(req, r) -> 
+                            let (answ, state) = interp st req 
                             r.Reply answ
                             match state with
                             | None -> return! loop st
-                            | Some st -> return! loop st
+                            | Some st -> 
+                                if st.EmptySlots = 0 then
+                                    let m =
+                                        st.Names 
+                                        |> Map.fold (fun state key _ -> Set.add key state) Set.empty
+                                        |> Remade.mail
+                                    return! gameStartMail inbox m st
+                                else
+                                    return! loop st
                     }
-                loop st
-
-        type NameRegister(emptySlots) =
-            let counter =
-                let interp name ({Names = names; EmptySlots = slots}) = function
-                    | Log x -> 
-                        let (answ, x) = logProc name names slots x
-                        let state =
-                            match x with
-                            | None -> None
-                            | Some(names, slots) -> Some {Names = names; EmptySlots = slots}
-                        answ, state
-                    | _ ->
-                        //if slots = 0 then GameStart true, None
-                        //else WaitPlayers slots, None
-                        WaitPlayers slots, None
-                    //| _ -> GameStart false, None
-                MailboxProcessor.Start(fun inbox -> 
-                    let rec loop st =
-                        async {
-                            let! msg = inbox.Receive()
-                            match msg with
-                            //| Fetch r -> r.Reply names; return ()
-                            | Post(name, req, r) -> 
-                                let (answ, state) = interp name st req 
-                                r.Reply answ
-                                match state with
-                                | None -> return! loop st
-                                | Some st -> return! loop st
-                        }
-                    loop {Names = Map.empty; EmptySlots = emptySlots })
-            member __.Post(name, req) = counter.PostAndReply(fun x -> Post(name, req, x))
-        /// <summary> return names and dispose </summary>
-        //member __.Fetch () = counter.PostAndReply(Fetch)
-
+                loop {Names = Map.empty; EmptySlots = emptySlots })
+        member __.Post(req) = counter.PostAndReply(fun x -> Post(req, x))
+    /// <summary> return names and dispose </summary>
+    //member __.Fetch () = counter.PostAndReply(Fetch)

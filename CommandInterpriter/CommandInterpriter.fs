@@ -25,67 +25,84 @@ type A<'a> =
         let ms = new MemoryStream(bytes)
         ms
 
-type Rank = Rank of int
-type Suit = Suit of int
-type PlayingCard = { Rank: Rank; Suit: Suit }
+type PlayerId = string
 
-module ServerAnswer = 
+type Rank = int
+type Suit = int
+type PlayingCard = { Rank:Rank; Suit:Suit }
+
+module GameAnswer =
     type Ask =
         | IsRank of Rank
-        | IsCount of Rank * int
-        | IsSuit of Rank * Suit list
+        | IsCount of int
+        | IsSuit of Set<Suit>
+    type Info =
+        | AddCardFromDeck of PlayingCard
+        //| RemoveCard of PlayingCard
 
-    type InfoMsg =
-        | AskXOnYou  of Ask * string // противник спрашивает у тебя
-        | AskXOnY    of Ask * string * string
-        | MoveYouOnX of string
-        | MoveXOnY   of string * string // кто-то на кого-то начинает ход
-        | MoveXOnYou of string // на тебя ходит
-        | Success    of bool // успешность какой-нибудь операции
-        | CardAdd    of PlayingCard
-        | CardRemove of PlayingCard
+        | CompileChest of PlayerId * Rank
 
-    type cmd = 
-        | UnknownCmd
-        /// <summary>порядок, имена игроков, а так же кол-во карт у каждого<summary>
-        | Players of (string * int) list
-        | Write of string
-        | GetRank
-        | GetSuit of int
-        | Read
-        | WaitServer
-        | WaitPlayer of string
-        
-        | WaitConnectPlayers of int
+        | AskXOnYou  of Ask * PlayerId
+        | AskXOnY    of Ask * PlayerId * PlayerId
+
+        | MoveYouOnX of PlayerId
+        | MoveXOnY   of PlayerId * PlayerId
+        | MoveXOnYou of PlayerId
+
         | Success of bool
+
+    type PlayerInfo = { Id:PlayerId; CardsCount:int; Chests:Set<Rank> }
+
+    type Answ =
+        | Wait of PlayerId
+        | EndGame
+
+        | GetRank
+        | GetCount
+        | GetSuit
+
+        | Info of Info
+        | FailAnsw
+        | Nil
+
+        /// <summary>На случай если один из игроков выйдет из игры и снова войдет, таких данных достаточно
+        /// чтобы продолжить игру.</summary>
+        | GameInfo of PlayerInfo list * Set<PlayingCard>
+
+module ServerAnswer = 
+    type Answ = 
+        | Success of bool
+        | NameEmpty
+        | NameBusy
+        | SlotsFull
         
-        | StartGame
-        | YourName of string
-        | LoginReq
-        /// <summary> Свободных мест нет (NoVacanties) </summary>
-        | SlotBeAbsent
-        | Info of InfoMsg
-        | Cards of (int * int) list
+        | WaitPlayers of int
+        | GameStart of bool
+
+        | Game of GameAnswer.Answ
         
-    let unpars (x:cmd) = A<cmd>.serialize x
-    let pars x = A<cmd>.deserialize x
+    let unpars (x:Answ) = A<Answ>.serialize x
+    let pars x = A<Answ>.deserialize x
+
+module GameReq =
+    type Inputs = 
+        | RankInput of Rank
+        | CountInput of int
+        | SuitInput of Set<Suit>
+
+    type Req = 
+        | GetState
+        | Input of Inputs
+        /// <summary>Запрос на порядок, имена игроков, а так же кол-во карт у каждого.</summary>
+        | GetGameInfo
 
 module ClientReq =
-    type cmd = 
-        | Rank of int
-        | Suits of int list
-        //| Success
-        | EnterBy of string
-        | Write of string
-        | Getstate
-        | GetMyName
-        
-        | GetCards
-        /// <summary>Запрос на порядок, имена игроков, а так же кол-во карт у каждого.</summary>
-        | GetPlayers
+    type Req =
+        | Login of string
+        | GameReq of GameReq.Req
 
-    let unpars (x:cmd) = A<cmd>.serialize x
-    let pars x = A<cmd>.deserialize x
+    let unpars (x:Req) = A<Req>.serialize x
+    let pars x = A<Req>.deserialize x
 
 /// <summary>
 /// Copies the contents of input to output. Doesn't close either stream.

@@ -38,10 +38,14 @@ let accf acc f v =
         else Set.add v acc |> f
     Node(v, xs)
 
+open CommandInterpriter
+open CommandInterpriter.GameAnswer
+open CommandInterpriter.GameReq
+
 module MoveCircle =
     type Test =
-        | GetMoveT of Remade.PlayerId * Remade.PlayerId * Remade.PlayerId list
-        | PlayerHaveCardsT of Remade.PlayerId
+        | GetMoveT of PlayerId * PlayerId * PlayerId list
+        | PlayerHaveCardsT of PlayerId
         | EndMoveCircleT
     let rec test acc x = 
         match x with
@@ -57,9 +61,9 @@ module PlCircle =
     type Test = 
         | EndT
         | DeckIsEmptyT
-        | MoveCircleT of Remade.PlayerId list
-        | PlayerHaveCardsT of Remade.PlayerId
-        | PlayerTakeCardFromDeckT of Remade.PlayerId
+        | MoveCircleT of PlayerId list
+        | PlayerHaveCardsT of PlayerId
+        | PlayerTakeCardFromDeckT of PlayerId
         | FailT of string
     let rec test acc x =
         match x with
@@ -87,8 +91,8 @@ module Basic =
     open Remade
     
     let m = Remade.mail (set([1..3] |> List.map (string)))
-    let get p = m.PostAndReply ((fun r -> Post(GetState p, r)), 500) |> printfn "%A"
-    let input p input = m.PostAndReply ((fun r -> Post(Input(p, input), r)), 500) |> printfn "%A"
+    let get p = m.PostAndReply ((fun r -> Post(p, GetState, r)), 500) |> printfn "%A"
+    let input p input = m.PostAndReply ((fun r -> Post(p, Input(input), r)), 500) |> printfn "%A"
     get "1"
     get "2"
     get "3"
