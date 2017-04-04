@@ -93,7 +93,7 @@ let readWrite stream f =
     let req = ClientReq.pars stream
     let answer = f req
     let ms = ServerAnswer.unpars answer
-    StreamToStream ms stream
+    streamToStream ms stream
 
 let tryRead streams = 
     try ClientReq.pars streams |> Some with _ -> None
@@ -103,13 +103,13 @@ let tryReadWrite stream f =
     | Some req -> 
         let answer = f req
         let ms = ServerAnswer.unpars answer
-        StreamToStream ms stream
+        streamToStream ms stream
         true
     | None -> false
 
 let write stream thing = 
     let ms = ServerAnswer.unpars thing
-    StreamToStream ms stream
+    streamToStream ms stream
 
 let start playerCount =
     let waitClientsNum = ref playerCount

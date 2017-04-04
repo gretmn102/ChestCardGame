@@ -34,16 +34,20 @@ type PlayingCard = { Rank:Rank; Suit:Suit }
 module GameAnswer =
     type Ask =
         | IsRank of Rank
-        | IsCount of int
+        | IsCount of Rank * int
         | IsSuit of Set<Suit>
+    type Asking = 
+        | AskXOnYou  of Ask * PlayerId
+        | AskXOnY    of Ask * PlayerId * PlayerId
     type Info =
         | AddCardFromDeck of PlayingCard
         //| RemoveCard of PlayingCard
+        | TakeCards of PlayerId * PlayingCard Set
+        | GiveCards of PlayerId * PlayingCard Set
 
         | CompileChest of PlayerId * Rank
-
-        | AskXOnYou  of Ask * PlayerId
-        | AskXOnY    of Ask * PlayerId * PlayerId
+        | Asking of Asking
+        | AskingResult of Asking * bool
 
         | MoveYouOnX of PlayerId
         | MoveXOnY   of PlayerId * PlayerId
@@ -58,12 +62,12 @@ module GameAnswer =
         | EndGame
 
         | GetRank
-        | GetCount
-        | GetSuit
+        | GetCount of Rank
+        | GetSuit of Rank * int
 
         | Info of Info
         | FailAnsw
-        | Nil
+        //| Nil
 
         /// <summary>На случай если один из игроков выйдет из игры и снова войдет, таких данных достаточно
         /// чтобы продолжить игру.</summary>
@@ -77,10 +81,12 @@ module ServerAnswer =
         | SlotsFull
         
         | WaitPlayers of int
-        | GameStart of bool
+//        | GameStart of bool
 
         | Game of GameAnswer.Answ
-        
+        | ReqLogin
+        | LoginSuccess
+        | FailReq
     let unpars (x:Answ) = A<Answ>.serialize x
     let pars x = A<Answ>.deserialize x
 
@@ -100,15 +106,19 @@ module ClientReq =
     type Req =
         | Login of string
         | GameReq of GameReq.Req
-
+        | GetServerState
     let unpars (x:Req) = A<Req>.serialize x
     let pars x = A<Req>.deserialize x
 
 /// <summary>
 /// Copies the contents of input to output. Doesn't close either stream.
 /// </summary>
-let StreamToStream (input:Stream) (output:Stream) = 
+let streamToStream (input:Stream) (output:Stream) = 
     let buffer = Array.create (8 * 1024) (byte 0)
+//    let f () = input.Read(buffer, 0, buffer.Length)
+//    until ((=) 0) (fun len -> output.Write(buffer, 0, len); f()) <| f()
+//    |> ignore
+
     let rec f () = 
         let len = input.Read(buffer, 0, buffer.Length)
         if len > 0 then
