@@ -1,1 +1,0 @@
-START git-bash.exe

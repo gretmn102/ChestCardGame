@@ -25,7 +25,10 @@ module nameReg =
             match Map.tryFind name names with
             | None -> Success false, None
             | _ -> 
-                let state = {Names = Map.add name false names; EmptySlots = slots + 1 }
+                let state = {
+                        Names = Map.add name false names
+                        EmptySlots = slots + 1
+                    }
                 Success true, Some state
         | Login ->
             if slots = 0 then SlotsFull, None
@@ -38,7 +41,8 @@ module nameReg =
                 | Some true -> NameBusy, None
 
     let gameMail inbox m st =
-        let gamePost name req = MailboxProcessor.postAndReply m (fun r -> Remade.Msg.Post(name, req, r))
+        let gamePost name req =
+            MailboxProcessor.postAndReply m (fun r -> RemadeOld.Msg.Post(name, req, r))
         let interp ({Names = names; EmptySlots = slots}) = function
             | Log(name, x) ->  logProc name names slots x
             | GameReq(name, req) ->
@@ -99,7 +103,7 @@ let tryReadWrite stream f =
     | None -> None
 
 let init gameMailbox countPlayer = 
-    let listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 5000)
+    let listener = System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 5000)
     listener.Start()
     let post = 
         let m = nameReg.nameRegister gameMailbox countPlayer
@@ -176,4 +180,4 @@ let init gameMailbox countPlayer =
             logCircle("unknown", ClientReq.GetServerState) // nameReg.Req.Log("", nameReg.Logout)
         } |> Async.Start
 
-init Remade.mail 2
+init RemadeOld.mail 2

@@ -1,0 +1,18 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net461</TargetFramework>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="CommandInterpriter.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+    <Reference Include="System.Runtime" />
+    <Reference Include="$(FsharpMyExtension)" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>
